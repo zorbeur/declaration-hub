@@ -22,6 +22,7 @@ export default {
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
+          hover: "hsl(var(--primary-hover))",
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
@@ -30,6 +31,14 @@ export default {
         destructive: {
           DEFAULT: "hsl(var(--destructive))",
           foreground: "hsl(var(--destructive-foreground))",
+        },
+        success: {
+          DEFAULT: "hsl(var(--success))",
+          foreground: "hsl(var(--success-foreground))",
+        },
+        warning: {
+          DEFAULT: "hsl(var(--warning))",
+          foreground: "hsl(var(--warning-foreground))",
         },
         muted: {
           DEFAULT: "hsl(var(--muted))",
@@ -56,6 +65,16 @@ export default {
           "accent-foreground": "hsl(var(--sidebar-accent-foreground))",
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
+        },
+        priority: {
+          low: "hsl(var(--priority-low))",
+          "low-text": "hsl(var(--priority-low-text))",
+          medium: "hsl(var(--priority-medium))",
+          "medium-text": "hsl(var(--priority-medium-text))",
+          important: "hsl(var(--priority-important))",
+          "important-text": "hsl(var(--priority-important-text))",
+          urgent: "hsl(var(--priority-urgent))",
+          "urgent-text": "hsl(var(--priority-urgent-text))",
         },
       },
       borderRadius: {

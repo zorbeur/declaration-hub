@@ -7,6 +7,7 @@ import Home from "./pages/Home";
 import Submit from "./pages/Submit";
 import Track from "./pages/Track";
 import Admin from "./pages/Admin";
+import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -21,8 +22,8 @@ const App = () => (
           <Route path="/" element={<Home />} />
           <Route path="/submit" element={<Submit />} />
           <Route path="/track" element={<Track />} />
+          <Route path="/login" element={<Login />} />
           <Route path="/admin" element={<Admin />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

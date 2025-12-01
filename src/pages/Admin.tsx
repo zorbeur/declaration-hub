@@ -1,27 +1,37 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useDeclarations } from "@/hooks/useDeclarations";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useActivityLog } from "@/hooks/useActivityLog";
 import { Declaration, DeclarationStatus, Priority } from "@/types/declaration";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Eye, Download, FileText, TrendingUp, Clock, CheckCircle, XCircle } from "lucide-react";
+import { Eye, Download, FileText, Clock, CheckCircle, XCircle, Settings } from "lucide-react";
 import { Label } from "@/components/ui/label";
+import { AdminStats } from "@/components/admin/AdminStats";
+import { AdminUsers } from "@/components/admin/AdminUsers";
+import { ActivityLogViewer } from "@/components/admin/ActivityLogViewer";
+import { DataManagement } from "@/components/admin/DataManagement";
+import { AdvancedFilters } from "@/components/admin/AdvancedFilters";
 
 export default function Admin() {
   const navigate = useNavigate();
-  const { hasAdminAccess, isLoading } = useAuth();
+  const { hasAdminAccess, isLoading, currentUser } = useAuth();
   const [selectedDeclaration, setSelectedDeclaration] = useState<Declaration | null>(null);
   const [statusFilter, setStatusFilter] = useState<DeclarationStatus | "all">("all");
+  const [priorityFilter, setPriorityFilter] = useState<Priority | "all">("all");
+  const [typeFilter, setTypeFilter] = useState<"all" | "plainte" | "perte">("all");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [activeTab, setActiveTab] = useState("declarations");
   const { declarations, updateDeclarationStatus } = useDeclarations();
   const { toast } = useToast();
+  const { addLog } = useActivityLog();
 
   useEffect(() => {
     if (!isLoading && !hasAdminAccess()) {
@@ -38,20 +48,47 @@ export default function Admin() {
   }
 
   const handleUpdateStatus = (id: string, status: DeclarationStatus, priority?: Priority) => {
-    updateDeclarationStatus(id, status, priority, "Admin");
+    const declaration = declarations.find(d => d.id === id);
+    updateDeclarationStatus(id, status, priority, currentUser?.username || "Admin");
+    
+    // Log the activity
+    if (declaration) {
+      const actionText = status === "validee" ? "Déclaration validée" : 
+                        status === "rejetee" ? "Déclaration rejetée" : 
+                        "Statut modifié";
+      addLog(
+        currentUser?.id || "unknown",
+        currentUser?.username || "Admin",
+        actionText,
+        `${actionText} - ${declaration.trackingCode}${priority ? ` avec priorité ${priority}` : ""}`,
+        id
+      );
+    }
+    
     toast({ title: "Déclaration mise à jour avec succès" });
     setSelectedDeclaration(null);
   };
 
-  const filteredDeclarations = declarations.filter(
-    (d) => statusFilter === "all" || d.status === statusFilter
-  );
+  const filteredDeclarations = useMemo(() => {
+    return declarations.filter((d) => {
+      const matchesStatus = statusFilter === "all" || d.status === statusFilter;
+      const matchesPriority = priorityFilter === "all" || d.priority === priorityFilter;
+      const matchesType = typeFilter === "all" || d.type === typeFilter;
+      const matchesSearch = searchTerm === "" || 
+        d.trackingCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        d.declarantName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        d.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        d.description.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      return matchesStatus && matchesPriority && matchesType && matchesSearch;
+    });
+  }, [declarations, statusFilter, priorityFilter, typeFilter, searchTerm]);
 
-  const stats = {
-    total: declarations.length,
-    pending: declarations.filter(d => d.status === "en_attente").length,
-    validated: declarations.filter(d => d.status === "validee").length,
-    rejected: declarations.filter(d => d.status === "rejetee").length,
+  const handleResetFilters = () => {
+    setSearchTerm("");
+    setStatusFilter("all");
+    setPriorityFilter("all");
+    setTypeFilter("all");
   };
 
   const getPriorityColor = (priority?: string) => {
@@ -84,134 +121,111 @@ export default function Admin() {
       
       <main className="flex-1 container mx-auto px-6 py-12">
         <div className="mb-12 animate-fade-in">
-          <h1 className="text-4xl font-semibold mb-4 tracking-tight">Tableau de Bord</h1>
+          <h1 className="text-4xl font-semibold mb-4 tracking-tight">Administration</h1>
           <p className="text-muted-foreground text-lg">
-            Gérez toutes les déclarations depuis cet espace
+            Tableau de bord et gestion complète de la plateforme
           </p>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid gap-6 md:grid-cols-4 mb-12 animate-slide-up">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total</p>
-                  <p className="text-3xl font-semibold">{stats.total}</p>
-                </div>
-                <FileText className="h-8 w-8 text-muted-foreground opacity-50" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">En attente</p>
-                  <p className="text-3xl font-semibold">{stats.pending}</p>
-                </div>
-                <Clock className="h-8 w-8 text-warning opacity-50" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Validées</p>
-                  <p className="text-3xl font-semibold">{stats.validated}</p>
-                </div>
-                <CheckCircle className="h-8 w-8 text-success opacity-50" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Rejetées</p>
-                  <p className="text-3xl font-semibold">{stats.rejected}</p>
-                </div>
-                <XCircle className="h-8 w-8 text-destructive opacity-50" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="declarations">Déclarations</TabsTrigger>
+            <TabsTrigger value="stats">Statistiques</TabsTrigger>
+            <TabsTrigger value="users">Utilisateurs</TabsTrigger>
+            <TabsTrigger value="activity">Activité</TabsTrigger>
+            <TabsTrigger value="data">Données</TabsTrigger>
+          </TabsList>
 
-        {/* Filters */}
-        <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-2xl font-semibold">Déclarations</h2>
-          <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as any)}>
-            <SelectTrigger className="w-48">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Toutes</SelectItem>
-              <SelectItem value="en_attente">En attente</SelectItem>
-              <SelectItem value="validee">Validées</SelectItem>
-              <SelectItem value="rejetee">Rejetées</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+          <TabsContent value="declarations" className="space-y-6">
+            <AdminStats declarations={declarations} />
+            
+            <AdvancedFilters
+              searchTerm={searchTerm}
+              setSearchTerm={setSearchTerm}
+              statusFilter={statusFilter}
+              setStatusFilter={setStatusFilter}
+              priorityFilter={priorityFilter}
+              setPriorityFilter={setPriorityFilter}
+              typeFilter={typeFilter}
+              setTypeFilter={setTypeFilter}
+              onReset={handleResetFilters}
+            />
 
-        {/* Declarations List */}
-        <div className="grid gap-4">
-          {filteredDeclarations.length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center">
-                <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-50" />
-                <p className="text-muted-foreground">Aucune déclaration trouvée</p>
-              </CardContent>
-            </Card>
-          ) : (
-            filteredDeclarations.map((declaration) => (
-              <Card key={declaration.id} className="hover:shadow-lg transition-all duration-300">
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 space-y-3">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Badge variant="outline" className="font-mono">
-                          {declaration.trackingCode}
-                        </Badge>
-                        <Badge variant="outline">
-                          {declaration.type === "plainte" ? "Plainte" : "Perte"}
-                        </Badge>
-                        <Badge className={getStatusColor(declaration.status)}>
-                          {declaration.status === "en_attente" ? "En attente" : 
-                           declaration.status === "validee" ? "Validée" : "Rejetée"}
-                        </Badge>
-                        {declaration.priority && (
-                          <Badge className={getPriorityColor(declaration.priority)}>
-                            {declaration.priority.charAt(0).toUpperCase() + declaration.priority.slice(1)}
-                          </Badge>
-                        )}
+            <div className="grid gap-4">
+              {filteredDeclarations.length === 0 ? (
+                <Card>
+                  <CardContent className="py-12 text-center">
+                    <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-50" />
+                    <p className="text-muted-foreground">Aucune déclaration trouvée</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                filteredDeclarations.map((declaration) => (
+                  <Card key={declaration.id} className="hover:shadow-lg transition-all duration-300">
+                    <CardContent className="p-6">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 space-y-3">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge variant="outline" className="font-mono">
+                              {declaration.trackingCode}
+                            </Badge>
+                            <Badge variant="outline">
+                              {declaration.type === "plainte" ? "Plainte" : "Perte"}
+                            </Badge>
+                            <Badge className={getStatusColor(declaration.status)}>
+                              {declaration.status === "en_attente" ? "En attente" : 
+                               declaration.status === "validee" ? "Validée" : "Rejetée"}
+                            </Badge>
+                            {declaration.priority && (
+                              <Badge className={getPriorityColor(declaration.priority)}>
+                                {declaration.priority.charAt(0).toUpperCase() + declaration.priority.slice(1)}
+                              </Badge>
+                            )}
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-lg mb-1">{declaration.category}</h3>
+                            <p className="text-sm text-muted-foreground line-clamp-2">
+                              {declaration.description}
+                            </p>
+                          </div>
+                          <div className="flex gap-6 text-sm text-muted-foreground">
+                            <span><span className="font-medium">Déclarant:</span> {declaration.declarantName}</span>
+                            <span><span className="font-medium">Tél:</span> {declaration.phone}</span>
+                          </div>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSelectedDeclaration(declaration)}
+                          className="gap-2"
+                        >
+                          <Eye className="h-4 w-4" />
+                          Détails
+                        </Button>
                       </div>
-                      <div>
-                        <h3 className="font-semibold text-lg mb-1">{declaration.category}</h3>
-                        <p className="text-sm text-muted-foreground line-clamp-2">
-                          {declaration.description}
-                        </p>
-                      </div>
-                      <div className="flex gap-6 text-sm text-muted-foreground">
-                        <span><span className="font-medium">Déclarant:</span> {declaration.declarantName}</span>
-                        <span><span className="font-medium">Tél:</span> {declaration.phone}</span>
-                      </div>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setSelectedDeclaration(declaration)}
-                      className="gap-2"
-                    >
-                      <Eye className="h-4 w-4" />
-                      Détails
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
-        </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="stats" className="space-y-6">
+            <AdminStats declarations={declarations} />
+          </TabsContent>
+
+          <TabsContent value="users" className="space-y-6">
+            <AdminUsers />
+          </TabsContent>
+
+          <TabsContent value="activity" className="space-y-6">
+            <ActivityLogViewer />
+          </TabsContent>
+
+          <TabsContent value="data" className="space-y-6">
+            <DataManagement declarations={declarations} />
+          </TabsContent>
+        </Tabs>
       </main>
 
       {/* Declaration Details Dialog */}

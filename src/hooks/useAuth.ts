@@ -25,12 +25,15 @@ const simpleHash = (str: string): string => {
 export const useAuth = () => {
   const [currentUser, setCurrentUser] = useState<AdminUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isFirstSetup, setIsFirstSetup] = useState(false);
 
   useEffect(() => {
     // Check for existing session
     const session = localStorage.getItem(STORAGE_KEY_SESSION);
+    const users = getUsers();
+    setIsFirstSetup(users.length === 0);
+    
     if (session) {
-      const users = getUsers();
       const user = users.find((u) => u.id === session);
       if (user) {
         setCurrentUser(user);
@@ -105,6 +108,6 @@ export const useAuth = () => {
     login,
     logout,
     hasAdminAccess,
-    isFirstSetup: getUsers().length === 0,
+    isFirstSetup,
   };
 };

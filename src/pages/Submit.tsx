@@ -144,15 +144,78 @@ export default function Submit() {
     setCurrentStep(Math.max(currentStep - 1, 1));
   };
 
+  const getDeviceInfo = () => {
+    const ua = navigator.userAgent;
+    let deviceType = "Desktop";
+    let deviceModel = "Unknown";
+
+    // Détection du type d'appareil
+    if (/Mobile|Android|iPhone/i.test(ua)) {
+      deviceType = "Mobile";
+    } else if (/Tablet|iPad/i.test(ua)) {
+      deviceType = "Tablet";
+    }
+
+    // Extraction du modèle (approximatif)
+    if (/iPhone/i.test(ua)) {
+      const match = ua.match(/iPhone OS ([0-9_]+)/);
+      deviceModel = match ? `iPhone (iOS ${match[1].replace(/_/g, '.')})` : "iPhone";
+    } else if (/iPad/i.test(ua)) {
+      deviceModel = "iPad";
+    } else if (/Android/i.test(ua)) {
+      const match = ua.match(/Android ([0-9.]+)/);
+      deviceModel = match ? `Android ${match[1]}` : "Android";
+    } else if (/Windows/i.test(ua)) {
+      deviceModel = "Windows PC";
+    } else if (/Mac/i.test(ua)) {
+      deviceModel = "Mac";
+    } else if (/Linux/i.test(ua)) {
+      deviceModel = "Linux";
+    }
+
+    return { deviceType, deviceModel };
+  };
+
+  const getBrowserInfo = () => {
+    const ua = navigator.userAgent;
+    let browser = "Unknown";
+
+    if (/Firefox/i.test(ua)) {
+      browser = "Firefox";
+    } else if (/Chrome/i.test(ua) && !/Edg/i.test(ua)) {
+      browser = "Chrome";
+    } else if (/Safari/i.test(ua) && !/Chrome/i.test(ua)) {
+      browser = "Safari";
+    } else if (/Edg/i.test(ua)) {
+      browser = "Edge";
+    } else if (/MSIE|Trident/i.test(ua)) {
+      browser = "Internet Explorer";
+    }
+
+    return `${browser} - ${ua}`;
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (currentStep < totalSteps) {
+      handleNext();
+      return;
+    }
+
     if (!validateStep(currentStep)) return;
+
+    const { deviceType, deviceModel } = getDeviceInfo();
+    const browserInfo = getBrowserInfo();
 
     const trackingCode = addDeclaration({
       ...formData,
       type: formData.type as DeclarationType,
       attachments,
+      browserInfo,
+      deviceType,
+      deviceModel,
+      ipAddress: "Non disponible côté client", // L'IP nécessiterait un backend
     });
 
     toast({

@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "./ui/button";
-import { FileText, Search, Shield, LogOut } from "lucide-react";
+import { Home, FileUp, Search, Shield, LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 export const Header = () => {
@@ -30,7 +30,7 @@ export const Header = () => {
                 size="sm" 
                 className="gap-2"
               >
-                <FileText className="h-4 w-4" />
+                <Home className="h-4 w-4" />
                 <span className="hidden sm:inline">Accueil</span>
               </Button>
             </Link>
@@ -40,7 +40,7 @@ export const Header = () => {
                 size="sm" 
                 className="gap-2"
               >
-                <FileText className="h-4 w-4" />
+                <FileUp className="h-4 w-4" />
                 <span className="hidden sm:inline">Déclarer</span>
               </Button>
             </Link>

@@ -1,4 +1,5 @@
 import { Shield, Mail, Phone, MapPin } from "lucide-react";
+import { Link } from "react-router-dom";
 
 export const Footer = () => {
   return (
@@ -64,16 +65,16 @@ export const Footer = () => {
         <div className="mt-12 pt-8 border-t border-border">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-muted-foreground">
             <p>© {new Date().getFullYear()} Portail Citoyen. Tous droits réservés.</p>
-            <div className="flex gap-6">
-              <a href="#" className="hover:text-foreground transition-colors">
+            <div className="flex flex-wrap gap-4 md:gap-6">
+              <Link to="/privacy" className="hover:text-foreground transition-colors">
                 Politique de confidentialité
-              </a>
-              <a href="#" className="hover:text-foreground transition-colors">
+              </Link>
+              <Link to="/terms" className="hover:text-foreground transition-colors">
                 Conditions d'utilisation
-              </a>
-              <a href="#" className="hover:text-foreground transition-colors">
+              </Link>
+              <Link to="/accessibility" className="hover:text-foreground transition-colors">
                 Accessibilité
-              </a>
+              </Link>
             </div>
           </div>
         </div>

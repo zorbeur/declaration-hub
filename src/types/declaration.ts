@@ -27,4 +27,9 @@ export interface Declaration {
   createdAt: string;
   updatedAt: string;
   validatedBy?: string;
+  // Informations de suivi technique
+  browserInfo?: string;
+  deviceType?: string;
+  deviceModel?: string;
+  ipAddress?: string;
 }

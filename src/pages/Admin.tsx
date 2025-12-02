@@ -39,14 +39,6 @@ export default function Admin() {
     }
   }, [hasAdminAccess, isLoading, navigate]);
 
-  if (isLoading) {
-    return null;
-  }
-
-  if (!hasAdminAccess()) {
-    return null;
-  }
-
   const handleUpdateStatus = (id: string, status: DeclarationStatus, priority?: Priority) => {
     const declaration = declarations.find(d => d.id === id);
     updateDeclarationStatus(id, status, priority, currentUser?.username || "Admin");
@@ -114,6 +106,14 @@ export default function Admin() {
         return "bg-warning/10 text-warning border-warning/20";
     }
   };
+
+  if (isLoading) {
+    return null;
+  }
+
+  if (!hasAdminAccess()) {
+    return null;
+  }
 
   return (
     <div className="flex flex-col min-h-screen">

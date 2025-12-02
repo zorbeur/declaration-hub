@@ -20,6 +20,7 @@ export interface Declaration {
   description: string;
   incidentDate: string;
   location: string;
+  reward?: string;
   attachments: DeclarationAttachment[];
   status: DeclarationStatus;
   priority?: Priority;

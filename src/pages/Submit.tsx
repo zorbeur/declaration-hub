@@ -82,11 +82,11 @@ export default function Submit() {
     return selectedDate <= today;
   };
 
-  const processFiles = async (files: FileList | File[]) => {
+  const processFiles = async (fileList: FileList | File[]) => {
     const newAttachments: DeclarationAttachment[] = [];
+    const files = Array.from(fileList);
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i] instanceof File ? files[i] : files[i];
+    for (const file of files) {
       if (file.size > 5 * 1024 * 1024) {
         toast({
           title: "Fichier trop volumineux",
@@ -97,7 +97,7 @@ export default function Submit() {
       }
 
       const reader = new FileReader();
-      await new Promise((resolve) => {
+      await new Promise<void>((resolve) => {
         reader.onload = () => {
           newAttachments.push({
             id: crypto.randomUUID(),
@@ -105,7 +105,7 @@ export default function Submit() {
             data: reader.result as string,
             type: file.type,
           });
-          resolve(null);
+          resolve();
         };
         reader.readAsDataURL(file);
       });

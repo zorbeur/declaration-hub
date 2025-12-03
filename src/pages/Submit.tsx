@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useDeclarations } from "@/hooks/useDeclarations";
 import { useToast } from "@/hooks/use-toast";
 import { DeclarationAttachment, DeclarationType } from "@/types/declaration";
-import { Upload, X, ChevronRight, ChevronLeft } from "lucide-react";
+import { Upload, X, ChevronRight, ChevronLeft, FileImage, FileText, File } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 
 const PLAINTE_CATEGORIES = [
@@ -43,6 +43,8 @@ export default function Submit() {
   const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 4;
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   const [formData, setFormData] = useState({
     declarantName: "",
@@ -50,22 +52,41 @@ export default function Submit() {
     email: "",
     type: "" as DeclarationType | "",
     category: "",
+    customCategory: "",
     description: "",
     incidentDate: "",
     location: "",
     reward: "",
   });
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [attachments, setAttachments] = useState<DeclarationAttachment[]>([]);
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files) return;
+  // Validation functions
+  const validatePhone = (phone: string): boolean => {
+    const phoneRegex = /^(\+221|00221)?[0-9\s]{9,15}$/;
+    return phoneRegex.test(phone.replace(/\s/g, ''));
+  };
 
+  const validateEmail = (email: string): boolean => {
+    if (!email) return true; // Email is optional
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const validateDate = (date: string): boolean => {
+    if (!date) return false;
+    const selectedDate = new Date(date);
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+    return selectedDate <= today;
+  };
+
+  const processFiles = async (files: FileList | File[]) => {
     const newAttachments: DeclarationAttachment[] = [];
 
     for (let i = 0; i < files.length; i++) {
-      const file = files[i];
+      const file = files[i] instanceof File ? files[i] : files[i];
       if (file.size > 5 * 1024 * 1024) {
         toast({
           title: "Fichier trop volumineux",
@@ -90,58 +111,140 @@ export default function Submit() {
       });
     }
 
-    setAttachments([...attachments, ...newAttachments]);
+    setAttachments(prev => [...prev, ...newAttachments]);
   };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    await processFiles(files);
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      await processFiles(files);
+    }
+  }, []);
 
   const removeAttachment = (id: string) => {
     setAttachments(attachments.filter((a) => a.id !== id));
   };
 
+  const getFileIcon = (type: string) => {
+    if (type.startsWith('image/')) return FileImage;
+    if (type === 'application/pdf') return FileText;
+    return File;
+  };
+
   const validateStep = (step: number): boolean => {
+    const newErrors: Record<string, string> = {};
+
     switch (step) {
       case 1:
-        if (!formData.declarantName.trim() || !formData.phone.trim()) {
-          toast({
-            title: "Champs requis manquants",
-            description: "Veuillez remplir votre nom et téléphone",
-            variant: "destructive",
-          });
-          return false;
+        if (!formData.declarantName.trim()) {
+          newErrors.declarantName = "Le nom est requis";
+        } else if (formData.declarantName.trim().length < 3) {
+          newErrors.declarantName = "Le nom doit contenir au moins 3 caractères";
         }
-        return true;
+        
+        if (!formData.phone.trim()) {
+          newErrors.phone = "Le téléphone est requis";
+        } else if (!validatePhone(formData.phone)) {
+          newErrors.phone = "Format de téléphone invalide";
+        }
+        
+        if (formData.email && !validateEmail(formData.email)) {
+          newErrors.email = "Format d'email invalide";
+        }
+        break;
+
       case 2:
-        if (!formData.type || !formData.category || !formData.description.trim()) {
-          toast({
-            title: "Champs requis manquants",
-            description: "Veuillez remplir le type, la catégorie et la description",
-            variant: "destructive",
-          });
-          return false;
+        if (!formData.type) {
+          newErrors.type = "Le type est requis";
         }
-        return true;
+        if (!formData.category) {
+          newErrors.category = "La catégorie est requise";
+        }
+        if ((formData.category === "Autre objet" || formData.category === "Autre plainte") && !formData.customCategory.trim()) {
+          newErrors.customCategory = "Veuillez préciser la catégorie";
+        }
+        if (!formData.description.trim()) {
+          newErrors.description = "La description est requise";
+        } else if (formData.description.trim().length < 20) {
+          newErrors.description = "La description doit contenir au moins 20 caractères";
+        }
+        break;
+
       case 3:
-        if (!formData.incidentDate || !formData.location.trim()) {
-          toast({
-            title: "Champs requis manquants",
-            description: "Veuillez remplir la date et le lieu",
-            variant: "destructive",
-          });
-          return false;
+        if (!formData.incidentDate) {
+          newErrors.incidentDate = "La date est requise";
+        } else if (!validateDate(formData.incidentDate)) {
+          newErrors.incidentDate = "La date ne peut pas être dans le futur";
         }
-        return true;
+        
+        if (!formData.location.trim()) {
+          newErrors.location = "Le lieu est requis";
+        } else if (formData.location.trim().length < 5) {
+          newErrors.location = "Veuillez préciser davantage le lieu";
+        }
+        break;
+
       default:
-        return true;
+        break;
     }
+
+    setErrors(newErrors);
+
+    if (Object.keys(newErrors).length > 0) {
+      toast({
+        title: "Erreurs de validation",
+        description: "Veuillez corriger les erreurs indiquées",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    return true;
   };
 
-  const handleNext = () => {
+  const handleNext = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
     if (validateStep(currentStep)) {
-      setCurrentStep(Math.min(currentStep + 1, totalSteps));
+      setCurrentStep(prev => Math.min(prev + 1, totalSteps));
     }
   };
 
-  const handlePrevious = () => {
-    setCurrentStep(Math.max(currentStep - 1, 1));
+  const handlePrevious = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    setCurrentStep(prev => Math.max(prev - 1, 1));
   };
 
   const getDeviceInfo = () => {
@@ -149,14 +252,12 @@ export default function Submit() {
     let deviceType = "Desktop";
     let deviceModel = "Unknown";
 
-    // Détection du type d'appareil
     if (/Mobile|Android|iPhone/i.test(ua)) {
       deviceType = "Mobile";
     } else if (/Tablet|iPad/i.test(ua)) {
       deviceType = "Tablet";
     }
 
-    // Extraction du modèle (approximatif)
     if (/iPhone/i.test(ua)) {
       const match = ua.match(/iPhone OS ([0-9_]+)/);
       deviceModel = match ? `iPhone (iOS ${match[1].replace(/_/g, '.')})` : "iPhone";
@@ -164,7 +265,10 @@ export default function Submit() {
       deviceModel = "iPad";
     } else if (/Android/i.test(ua)) {
       const match = ua.match(/Android ([0-9.]+)/);
-      deviceModel = match ? `Android ${match[1]}` : "Android";
+      const brandMatch = ua.match(/;\s*([^;)]+)\s+Build/);
+      deviceModel = brandMatch 
+        ? `${brandMatch[1]} (Android ${match?.[1] || 'Unknown'})` 
+        : `Android ${match?.[1] || 'Unknown'}`;
     } else if (/Windows/i.test(ua)) {
       deviceModel = "Windows PC";
     } else if (/Mac/i.test(ua)) {
@@ -179,48 +283,53 @@ export default function Submit() {
   const getBrowserInfo = () => {
     const ua = navigator.userAgent;
     let browser = "Unknown";
+    let version = "";
 
-    if (/Firefox/i.test(ua)) {
+    if (/Firefox\/(\d+)/i.test(ua)) {
       browser = "Firefox";
-    } else if (/Chrome/i.test(ua) && !/Edg/i.test(ua)) {
-      browser = "Chrome";
-    } else if (/Safari/i.test(ua) && !/Chrome/i.test(ua)) {
-      browser = "Safari";
-    } else if (/Edg/i.test(ua)) {
+      version = ua.match(/Firefox\/(\d+)/i)?.[1] || "";
+    } else if (/Edg\/(\d+)/i.test(ua)) {
       browser = "Edge";
-    } else if (/MSIE|Trident/i.test(ua)) {
-      browser = "Internet Explorer";
+      version = ua.match(/Edg\/(\d+)/i)?.[1] || "";
+    } else if (/Chrome\/(\d+)/i.test(ua) && !/Edg/i.test(ua)) {
+      browser = "Chrome";
+      version = ua.match(/Chrome\/(\d+)/i)?.[1] || "";
+    } else if (/Safari\/(\d+)/i.test(ua) && !/Chrome/i.test(ua)) {
+      browser = "Safari";
+      version = ua.match(/Version\/(\d+)/i)?.[1] || "";
     }
 
-    return `${browser} - ${ua}`;
+    return `${browser}${version ? ` v${version}` : ''} - ${navigator.platform}`;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleFinalSubmit = (e: React.MouseEvent) => {
     e.preventDefault();
-
-    if (currentStep < totalSteps) {
-      handleNext();
-      return;
-    }
+    e.stopPropagation();
 
     if (!validateStep(currentStep)) return;
 
     const { deviceType, deviceModel } = getDeviceInfo();
     const browserInfo = getBrowserInfo();
 
+    // Use custom category if "Autre" is selected
+    const finalCategory = (formData.category === "Autre objet" || formData.category === "Autre plainte")
+      ? formData.customCategory
+      : formData.category;
+
     const trackingCode = addDeclaration({
       ...formData,
+      category: finalCategory,
       type: formData.type as DeclarationType,
       attachments,
       browserInfo,
       deviceType,
       deviceModel,
-      ipAddress: "Non disponible côté client", // L'IP nécessiterait un backend
+      ipAddress: "Non disponible côté client",
     });
 
     toast({
-      title: "Déclaration enregistrée",
-      description: `Code de suivi : ${trackingCode}`,
+      title: "Déclaration enregistrée avec succès!",
+      description: `Votre code de suivi : ${trackingCode}`,
     });
 
     navigate(`/track?code=${trackingCode}`);
@@ -228,6 +337,7 @@ export default function Submit() {
 
   const categories = formData.type === "plainte" ? PLAINTE_CATEGORIES : PERTE_CATEGORIES;
   const progress = (currentStep / totalSteps) * 100;
+  const maxDate = new Date().toISOString().split('T')[0];
 
   return (
     <div className="min-h-screen bg-background">
@@ -242,7 +352,7 @@ export default function Submit() {
             <Progress value={progress} className="mt-4" />
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-6">
               {/* Étape 1: Informations personnelles */}
               {currentStep === 1 && (
                 <div className="space-y-4 animate-fade-in">
@@ -253,8 +363,15 @@ export default function Submit() {
                       id="declarantName"
                       placeholder="Entrez votre nom complet"
                       value={formData.declarantName}
-                      onChange={(e) => setFormData({ ...formData, declarantName: e.target.value })}
+                      onChange={(e) => {
+                        setFormData({ ...formData, declarantName: e.target.value });
+                        if (errors.declarantName) setErrors({ ...errors, declarantName: '' });
+                      }}
+                      className={errors.declarantName ? "border-destructive" : ""}
                     />
+                    {errors.declarantName && (
+                      <p className="text-sm text-destructive">{errors.declarantName}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="phone">Téléphone *</Label>
@@ -263,8 +380,15 @@ export default function Submit() {
                       type="tel"
                       placeholder="+221 XX XXX XX XX"
                       value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      onChange={(e) => {
+                        setFormData({ ...formData, phone: e.target.value });
+                        if (errors.phone) setErrors({ ...errors, phone: '' });
+                      }}
+                      className={errors.phone ? "border-destructive" : ""}
                     />
+                    {errors.phone && (
+                      <p className="text-sm text-destructive">{errors.phone}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="email">Email (optionnel)</Label>
@@ -273,8 +397,15 @@ export default function Submit() {
                       type="email"
                       placeholder="votre@email.com"
                       value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      onChange={(e) => {
+                        setFormData({ ...formData, email: e.target.value });
+                        if (errors.email) setErrors({ ...errors, email: '' });
+                      }}
+                      className={errors.email ? "border-destructive" : ""}
                     />
+                    {errors.email && (
+                      <p className="text-sm text-destructive">{errors.email}</p>
+                    )}
                   </div>
                 </div>
               )}
@@ -287,9 +418,12 @@ export default function Submit() {
                     <Label htmlFor="type">Type *</Label>
                     <Select
                       value={formData.type}
-                      onValueChange={(value) => setFormData({ ...formData, type: value as DeclarationType, category: "" })}
+                      onValueChange={(value) => {
+                        setFormData({ ...formData, type: value as DeclarationType, category: "", customCategory: "" });
+                        if (errors.type) setErrors({ ...errors, type: '' });
+                      }}
                     >
-                      <SelectTrigger id="type">
+                      <SelectTrigger id="type" className={errors.type ? "border-destructive" : ""}>
                         <SelectValue placeholder="Sélectionner le type" />
                       </SelectTrigger>
                       <SelectContent>
@@ -297,6 +431,9 @@ export default function Submit() {
                         <SelectItem value="perte">Déclaration de perte</SelectItem>
                       </SelectContent>
                     </Select>
+                    {errors.type && (
+                      <p className="text-sm text-destructive">{errors.type}</p>
+                    )}
                   </div>
 
                   {formData.type && (
@@ -305,9 +442,12 @@ export default function Submit() {
                         <Label htmlFor="category">Catégorie *</Label>
                         <Select
                           value={formData.category}
-                          onValueChange={(value) => setFormData({ ...formData, category: value })}
+                          onValueChange={(value) => {
+                            setFormData({ ...formData, category: value, customCategory: "" });
+                            if (errors.category) setErrors({ ...errors, category: '' });
+                          }}
                         >
-                          <SelectTrigger id="category">
+                          <SelectTrigger id="category" className={errors.category ? "border-destructive" : ""}>
                             <SelectValue placeholder="Sélectionner la catégorie" />
                           </SelectTrigger>
                           <SelectContent>
@@ -318,17 +458,50 @@ export default function Submit() {
                             ))}
                           </SelectContent>
                         </Select>
+                        {errors.category && (
+                          <p className="text-sm text-destructive">{errors.category}</p>
+                        )}
                       </div>
+
+                      {/* Custom category input for "Autre" */}
+                      {(formData.category === "Autre objet" || formData.category === "Autre plainte") && (
+                        <div className="space-y-2 animate-fade-in">
+                          <Label htmlFor="customCategory">Précisez la catégorie *</Label>
+                          <Input
+                            id="customCategory"
+                            placeholder="Entrez votre catégorie personnalisée"
+                            value={formData.customCategory}
+                            onChange={(e) => {
+                              setFormData({ ...formData, customCategory: e.target.value });
+                              if (errors.customCategory) setErrors({ ...errors, customCategory: '' });
+                            }}
+                            className={errors.customCategory ? "border-destructive" : ""}
+                          />
+                          {errors.customCategory && (
+                            <p className="text-sm text-destructive">{errors.customCategory}</p>
+                          )}
+                        </div>
+                      )}
 
                       <div className="space-y-2">
                         <Label htmlFor="description">Description détaillée *</Label>
                         <Textarea
                           id="description"
                           rows={6}
-                          placeholder="Décrivez en détail votre déclaration..."
+                          placeholder="Décrivez en détail votre déclaration (minimum 20 caractères)..."
                           value={formData.description}
-                          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                          onChange={(e) => {
+                            setFormData({ ...formData, description: e.target.value });
+                            if (errors.description) setErrors({ ...errors, description: '' });
+                          }}
+                          className={errors.description ? "border-destructive" : ""}
                         />
+                        <p className="text-sm text-muted-foreground">
+                          {formData.description.length}/20 caractères minimum
+                        </p>
+                        {errors.description && (
+                          <p className="text-sm text-destructive">{errors.description}</p>
+                        )}
                       </div>
                     </>
                   )}
@@ -344,18 +517,33 @@ export default function Submit() {
                     <Input
                       id="incidentDate"
                       type="date"
+                      max={maxDate}
                       value={formData.incidentDate}
-                      onChange={(e) => setFormData({ ...formData, incidentDate: e.target.value })}
+                      onChange={(e) => {
+                        setFormData({ ...formData, incidentDate: e.target.value });
+                        if (errors.incidentDate) setErrors({ ...errors, incidentDate: '' });
+                      }}
+                      className={errors.incidentDate ? "border-destructive" : ""}
                     />
+                    {errors.incidentDate && (
+                      <p className="text-sm text-destructive">{errors.incidentDate}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="location">Lieu *</Label>
                     <Input
                       id="location"
-                      placeholder="Ex: Dakar, Plateau, Rue X"
+                      placeholder="Ex: Dakar, Plateau, Avenue Léopold Sédar Senghor"
                       value={formData.location}
-                      onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                      onChange={(e) => {
+                        setFormData({ ...formData, location: e.target.value });
+                        if (errors.location) setErrors({ ...errors, location: '' });
+                      }}
+                      className={errors.location ? "border-destructive" : ""}
                     />
+                    {errors.location && (
+                      <p className="text-sm text-destructive">{errors.location}</p>
+                    )}
                   </div>
 
                   {formData.type === "perte" && (
@@ -382,8 +570,22 @@ export default function Submit() {
                   <p className="text-sm text-muted-foreground">
                     Ajoutez des photos ou documents pour appuyer votre déclaration (optionnel)
                   </p>
-                  <div className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary transition-colors">
+                  
+                  {/* Drag & Drop Zone */}
+                  <div
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    className={`
+                      border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200
+                      ${isDragging 
+                        ? "border-primary bg-primary/5 scale-[1.02]" 
+                        : "border-border hover:border-primary hover:bg-muted/50"
+                      }
+                    `}
+                  >
                     <input
+                      ref={fileInputRef}
                       type="file"
                       id="file-upload"
                       multiple
@@ -392,35 +594,74 @@ export default function Submit() {
                       className="hidden"
                     />
                     <label htmlFor="file-upload" className="cursor-pointer">
-                      <Upload className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
+                      <Upload className={`h-12 w-12 mx-auto mb-3 transition-colors ${isDragging ? "text-primary" : "text-muted-foreground"}`} />
                       <p className="text-sm font-medium mb-1">
-                        Cliquez pour ajouter des fichiers
+                        {isDragging ? "Déposez les fichiers ici" : "Glissez-déposez vos fichiers ici"}
                       </p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-sm text-muted-foreground mb-2">ou</p>
+                      <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+                        Parcourir les fichiers
+                      </Button>
+                      <p className="text-xs text-muted-foreground mt-3">
                         Images ou PDF (max 5 Mo par fichier)
                       </p>
                     </label>
                   </div>
+
+                  {/* Attachments Preview */}
                   {attachments.length > 0 && (
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       <p className="text-sm font-medium">{attachments.length} fichier(s) ajouté(s)</p>
-                      {attachments.map((att) => (
-                        <div
-                          key={att.id}
-                          className="flex items-center justify-between bg-muted/50 p-3 rounded-lg border border-border"
-                        >
-                          <span className="text-sm truncate flex-1">{att.name}</span>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeAttachment(att.id)}
-                            className="ml-2"
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ))}
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {attachments.map((att) => {
+                          const IconComponent = getFileIcon(att.type);
+                          return (
+                            <div
+                              key={att.id}
+                              className="relative group bg-muted/50 rounded-lg border border-border overflow-hidden"
+                            >
+                              {att.type.startsWith('image/') ? (
+                                <div className="aspect-video relative">
+                                  <img
+                                    src={att.data}
+                                    alt={att.name}
+                                    className="w-full h-full object-cover"
+                                  />
+                                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                    <Button
+                                      type="button"
+                                      variant="destructive"
+                                      size="sm"
+                                      onClick={() => removeAttachment(att.id)}
+                                    >
+                                      <X className="h-4 w-4 mr-1" />
+                                      Supprimer
+                                    </Button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="p-4 flex items-center gap-3">
+                                  <IconComponent className="h-8 w-8 text-muted-foreground flex-shrink-0" />
+                                  <span className="text-sm truncate flex-1">{att.name}</span>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => removeAttachment(att.id)}
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              )}
+                              {att.type.startsWith('image/') && (
+                                <div className="p-2 border-t border-border">
+                                  <p className="text-xs truncate">{att.name}</p>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -428,26 +669,28 @@ export default function Submit() {
 
               {/* Navigation buttons */}
               <div className="flex justify-between pt-4 border-t">
-                {currentStep > 1 && (
+                {currentStep > 1 ? (
                   <Button type="button" variant="outline" onClick={handlePrevious}>
                     <ChevronLeft className="h-4 w-4 mr-2" />
                     Précédent
                   </Button>
+                ) : (
+                  <div />
                 )}
-                <div className="ml-auto">
+                <div>
                   {currentStep < totalSteps ? (
                     <Button type="button" onClick={handleNext}>
                       Suivant
                       <ChevronRight className="h-4 w-4 ml-2" />
                     </Button>
                   ) : (
-                    <Button type="submit">
+                    <Button type="button" onClick={handleFinalSubmit}>
                       Soumettre la déclaration
                     </Button>
                   )}
                 </div>
               </div>
-            </form>
+            </div>
           </CardContent>
         </Card>
       </main>

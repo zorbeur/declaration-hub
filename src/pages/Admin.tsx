@@ -22,7 +22,7 @@ import { AdvancedFilters } from "@/components/admin/AdvancedFilters";
 
 export default function Admin() {
   const navigate = useNavigate();
-  const { hasAdminAccess, isLoading, currentUser } = useAuth();
+  const { hasAdminAccess, isLoading, currentUser, logout } = useAuth();
   const [selectedDeclaration, setSelectedDeclaration] = useState<Declaration | null>(null);
   const [statusFilter, setStatusFilter] = useState<DeclarationStatus | "all">("all");
   const [priorityFilter, setPriorityFilter] = useState<Priority | "all">("all");
@@ -38,6 +38,15 @@ export default function Admin() {
       navigate("/login");
     }
   }, [hasAdminAccess, isLoading, navigate]);
+
+  const handleLogout = () => {
+    logout();
+    toast({
+      title: "Déconnexion",
+      description: "Vous avez été déconnecté avec succès",
+    });
+    navigate("/login");
+  };
 
   const handleUpdateStatus = (id: string, status: DeclarationStatus, priority?: Priority) => {
     const declaration = declarations.find(d => d.id === id);
@@ -281,6 +290,13 @@ export default function Admin() {
                       <p className="text-lg mt-1">{selectedDeclaration.category}</p>
                     </div>
 
+                    {selectedDeclaration.type === "perte" && selectedDeclaration.reward && (
+                      <div>
+                        <Label className="text-sm text-muted-foreground">Récompense offerte</Label>
+                        <p className="text-lg mt-1 text-primary font-semibold">{selectedDeclaration.reward}</p>
+                      </div>
+                    )}
+
                     <div>
                       <Label className="text-sm text-muted-foreground">Description</Label>
                       <p className="text-base mt-1 whitespace-pre-wrap">{selectedDeclaration.description}</p>
@@ -301,6 +317,46 @@ export default function Admin() {
                         <Label className="text-sm text-muted-foreground">Lieu</Label>
                         <p className="text-lg mt-1">{selectedDeclaration.location}</p>
                       </div>
+                    </div>
+
+                    {/* Technical Information Section */}
+                    <div className="border-t pt-6 mt-2">
+                      <h4 className="font-semibold mb-4 text-muted-foreground">Informations techniques</h4>
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div>
+                          <Label className="text-sm text-muted-foreground">Navigateur</Label>
+                          <p className="text-sm mt-1">{selectedDeclaration.browserInfo || "Non disponible"}</p>
+                        </div>
+                        <div>
+                          <Label className="text-sm text-muted-foreground">Type d'appareil</Label>
+                          <p className="text-sm mt-1">{selectedDeclaration.deviceType || "Non disponible"}</p>
+                        </div>
+                        <div>
+                          <Label className="text-sm text-muted-foreground">Modèle / OS</Label>
+                          <p className="text-sm mt-1">{selectedDeclaration.deviceModel || "Non disponible"}</p>
+                        </div>
+                        <div>
+                          <Label className="text-sm text-muted-foreground">Adresse IP</Label>
+                          <p className="text-sm mt-1">{selectedDeclaration.ipAddress || "Non disponible"}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-2 text-sm text-muted-foreground border-t pt-4">
+                      <div>
+                        <span>Créé le: </span>
+                        <span>{new Date(selectedDeclaration.createdAt).toLocaleString("fr-FR")}</span>
+                      </div>
+                      <div>
+                        <span>Mis à jour le: </span>
+                        <span>{new Date(selectedDeclaration.updatedAt).toLocaleString("fr-FR")}</span>
+                      </div>
+                      {selectedDeclaration.validatedBy && (
+                        <div className="md:col-span-2">
+                          <span>Traité par: </span>
+                          <span className="font-medium">{selectedDeclaration.validatedBy}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </TabsContent>

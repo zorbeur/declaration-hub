@@ -1,13 +1,19 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "./ui/button";
 import { Home, FileUp, Search, Shield, LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 export const Header = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { currentUser, logout, hasAdminAccess } = useAuth();
   
   const isActive = (path: string) => location.pathname === path;
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
 
   return (
     <header className="sticky top-0 z-50 backdrop-blur-apple border-b border-border/50">
@@ -70,7 +76,7 @@ export const Header = () => {
                 <Button 
                   variant="ghost" 
                   size="sm" 
-                  onClick={logout}
+                  onClick={handleLogout}
                   className="gap-2"
                 >
                   <LogOut className="h-4 w-4" />

@@ -3,6 +3,29 @@ import { Declaration, DeclarationStatus, Priority } from "@/types/declaration";
 
 const STORAGE_KEY = "declarations";
 
+// Generate a cryptographically strong random tracking code
+const generateSecureTrackingCode = (): string => {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Excludes confusing chars like 0, O, I, 1
+  const segments = [4, 4, 4]; // Format: XXXX-XXXX-XXXX
+  
+  let code = '';
+  const randomValues = new Uint32Array(12);
+  crypto.getRandomValues(randomValues);
+  
+  let idx = 0;
+  segments.forEach((length, segIndex) => {
+    for (let i = 0; i < length; i++) {
+      code += chars[randomValues[idx] % chars.length];
+      idx++;
+    }
+    if (segIndex < segments.length - 1) {
+      code += '-';
+    }
+  });
+  
+  return code;
+};
+
 export const useDeclarations = () => {
   const [declarations, setDeclarations] = useState<Declaration[]>([]);
 
@@ -18,17 +41,28 @@ export const useDeclarations = () => {
     setDeclarations(newDeclarations);
   };
 
-  const generateTrackingCode = (): string => {
-    const year = new Date().getFullYear();
-    const count = declarations.length + 1;
-    return `DECL-${year}-${count.toString().padStart(6, "0")}`;
+  const isTrackingCodeUnique = (code: string): boolean => {
+    return !declarations.some(d => d.trackingCode === code);
+  };
+
+  const generateUniqueTrackingCode = (): string => {
+    let code = generateSecureTrackingCode();
+    let attempts = 0;
+    
+    // Ensure uniqueness (extremely unlikely to need retries)
+    while (!isTrackingCodeUnique(code) && attempts < 10) {
+      code = generateSecureTrackingCode();
+      attempts++;
+    }
+    
+    return code;
   };
 
   const addDeclaration = (declaration: Omit<Declaration, "id" | "trackingCode" | "status" | "createdAt" | "updatedAt">) => {
     const newDeclaration: Declaration = {
       ...declaration,
       id: crypto.randomUUID(),
-      trackingCode: generateTrackingCode(),
+      trackingCode: generateUniqueTrackingCode(),
       status: "en_attente",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),

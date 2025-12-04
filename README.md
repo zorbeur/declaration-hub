@@ -71,3 +71,57 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+
+## Dépendances et tests locaux
+
+**Backend (API Django)**
+- Fichiers de dépendances: `API/requirements.txt`
+- Principales dépendances : `Django`, `djangorestframework`, `djangorestframework-simplejwt`, `django-cors-headers`, `django-ratelimit`, `pillow`, `requests`.
+
+Installation et lancement (depuis le dossier `API`):
+```bash
+# créer et activer un virtualenv
+python -m venv .venv
+source .venv/bin/activate
+
+# installer les dépendances
+pip install -r requirements.txt
+
+# appliquer les migrations
+python manage.py migrate
+
+# créer un superuser (optionnel)
+python manage.py createsuperuser
+
+# lancer le serveur de développement
+python manage.py runserver 0.0.0.0:8000
+```
+
+**Frontend (React + Vite)**
+- Fichier de dépendances : `package.json`
+- Principales dépendances : React, Vite, TypeScript, `react-google-recaptcha`, `lucide-react`, `@radix-ui/*`, `tailwindcss`, etc.
+
+Installation et lancement (depuis la racine du projet) :
+```bash
+npm install
+npm run dev
+```
+
+## Test E2E local (exemple)
+Un script de test simple est fourni dans `API/tmp/e2e_test_post.py` qui poste une déclaration vers l'API en utilisant les clés reCAPTCHA de test. Le projet utilise par défaut les clés de test reCAPTCHA :
+
+- Site key (test) : `6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI`
+- Secret (test) : `6LeIxAcTAAAAAGG-vFI1TnRWxMZNFuojJ4WifJWe`
+
+Pour exécuter le test E2E local (serveur Django démarré et virtualenv activé) :
+```bash
+# depuis le dossier API
+source .venv/bin/activate
+/usr/bin/env python API/tmp/e2e_test_post.py
+```
+
+Le script affichera le status HTTP et le JSON renvoyé par l'API (le `tracking_code` généré côté serveur).
+
+## Notes
+- Le serveur génère désormais automatiquement `id` et `tracking_code` si le client ne les fournit pas (sécurité et prévention des collisions).
+- Les protections (rate-limiting, reCAPTCHA) sont gérées via le modèle `ProtectionSettings` et peuvent être activées/désactivées depuis l'interface d'administration.

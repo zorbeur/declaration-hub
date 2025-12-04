@@ -19,6 +19,7 @@ import { AdminUsers } from "@/components/admin/AdminUsers";
 import { ActivityLogViewer } from "@/components/admin/ActivityLogViewer";
 import { DataManagement } from "@/components/admin/DataManagement";
 import { AdvancedFilters } from "@/components/admin/AdvancedFilters";
+import { SecuritySettings } from "@/components/admin/SecuritySettings";
 
 export default function Admin() {
   const navigate = useNavigate();
@@ -48,26 +49,35 @@ export default function Admin() {
     navigate("/login");
   };
 
-  const handleUpdateStatus = (id: string, status: DeclarationStatus, priority?: Priority) => {
+  const handleUpdateStatus = async (id: string, status: DeclarationStatus, priority?: Priority) => {
     const declaration = declarations.find(d => d.id === id);
-    updateDeclarationStatus(id, status, priority, currentUser?.username || "Admin");
     
-    // Log the activity
-    if (declaration) {
-      const actionText = status === "validee" ? "Déclaration validée" : 
-                        status === "rejetee" ? "Déclaration rejetée" : 
-                        "Statut modifié";
-      addLog(
-        currentUser?.id || "unknown",
-        currentUser?.username || "Admin",
-        actionText,
-        `${actionText} - ${declaration.trackingCode}${priority ? ` avec priorité ${priority}` : ""}`,
-        id
-      );
+    try {
+      await updateDeclarationStatus(id, status, priority, currentUser?.username || "Admin");
+      
+      // Log the activity
+      if (declaration) {
+        const actionText = status === "validee" ? "Déclaration validée" : 
+                          status === "rejetee" ? "Déclaration rejetée" : 
+                          "Statut modifié";
+        addLog(
+          currentUser?.id || "unknown",
+          currentUser?.username || "Admin",
+          actionText,
+          `${actionText} - ${declaration.trackingCode}${priority ? ` avec priorité ${priority}` : ""}`,
+          id
+        );
+      }
+      
+      toast({ title: "Déclaration mise à jour avec succès" });
+    } catch (error) {
+      console.error("Erreur mise à jour déclaration:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de mettre à jour la déclaration. Veuillez réessayer.",
+        variant: "destructive"
+      });
     }
-    
-    toast({ title: "Déclaration mise à jour avec succès" });
-    setSelectedDeclaration(null);
   };
 
   const filteredDeclarations = useMemo(() => {
@@ -137,11 +147,15 @@ export default function Admin() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="declarations">Déclarations</TabsTrigger>
             <TabsTrigger value="stats">Statistiques</TabsTrigger>
             <TabsTrigger value="users">Utilisateurs</TabsTrigger>
             <TabsTrigger value="activity">Activité</TabsTrigger>
+            <TabsTrigger value="security">
+              <Settings className="h-4 w-4 mr-2" />
+              Sécurité
+            </TabsTrigger>
             <TabsTrigger value="data">Données</TabsTrigger>
           </TabsList>
 
@@ -229,6 +243,10 @@ export default function Admin() {
 
           <TabsContent value="activity" className="space-y-6">
             <ActivityLogViewer />
+          </TabsContent>
+
+          <TabsContent value="security" className="space-y-6">
+            <SecuritySettings />
           </TabsContent>
 
           <TabsContent value="data" className="space-y-6">
@@ -403,7 +421,7 @@ export default function Admin() {
                         <Button
                           variant="outline"
                           className="flex-1 h-12"
-                          onClick={() => handleUpdateStatus(selectedDeclaration.id, "en_attente")}
+                          onClick={async () => await handleUpdateStatus(selectedDeclaration.id, "en_attente")}
                         >
                           <Clock className="h-4 w-4 mr-2" />
                           En attente
@@ -411,7 +429,7 @@ export default function Admin() {
                         <Button
                           variant="outline"
                           className="flex-1 h-12"
-                          onClick={() => handleUpdateStatus(selectedDeclaration.id, "rejetee")}
+                          onClick={async () => await handleUpdateStatus(selectedDeclaration.id, "rejetee")}
                         >
                           <XCircle className="h-4 w-4 mr-2" />
                           Rejeter
@@ -425,28 +443,28 @@ export default function Admin() {
                         <Button
                           variant="outline"
                           className="h-12"
-                          onClick={() => handleUpdateStatus(selectedDeclaration.id, "validee", "faible")}
+                          onClick={async () => await handleUpdateStatus(selectedDeclaration.id, "validee", "faible")}
                         >
                           Faible
                         </Button>
                         <Button
                           variant="outline"
                           className="h-12"
-                          onClick={() => handleUpdateStatus(selectedDeclaration.id, "validee", "moyenne")}
+                          onClick={async () => await handleUpdateStatus(selectedDeclaration.id, "validee", "moyenne")}
                         >
                           Moyenne
                         </Button>
                         <Button
                           variant="outline"
                           className="h-12"
-                          onClick={() => handleUpdateStatus(selectedDeclaration.id, "validee", "importante")}
+                          onClick={async () => await handleUpdateStatus(selectedDeclaration.id, "validee", "importante")}
                         >
                           Importante
                         </Button>
                         <Button
                           variant="outline"
                           className="h-12"
-                          onClick={() => handleUpdateStatus(selectedDeclaration.id, "validee", "urgente")}
+                          onClick={async () => await handleUpdateStatus(selectedDeclaration.id, "validee", "urgente")}
                         >
                           Urgente
                         </Button>

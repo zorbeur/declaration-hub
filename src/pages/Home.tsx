@@ -1,16 +1,25 @@
+import { useState } from "react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { useDeclarations } from "@/hooks/useDeclarations";
+import { DeclarationDetailsModal } from "@/components/DeclarationDetailsModal";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, MapPin, FileText, AlertTriangle } from "lucide-react";
 
 export default function Home() {
+  const [selectedDeclaration, setSelectedDeclaration] = useState<any | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
   const { getValidatedDeclarations } = useDeclarations();
   const validatedDeclarations = getValidatedDeclarations();
   
   // Séparer les déclarations de perte des plaintes
   const lossDeclarations = validatedDeclarations.filter(d => d.type === "perte");
+
+  const openDeclarationDetails = (declaration: any) => {
+    setSelectedDeclaration(declaration);
+    setModalOpen(true);
+  };
 
   const getPriorityColor = (priority?: string) => {
     switch (priority) {
@@ -39,7 +48,10 @@ export default function Home() {
   };
 
   const DeclarationCard = ({ declaration }: { declaration: any }) => (
-    <Card className="hover:shadow-lg transition-all duration-300 hover:scale-[1.02]">
+    <Card
+      className="hover:shadow-lg transition-all duration-300 hover:scale-[1.02] cursor-pointer"
+      onClick={() => openDeclarationDetails(declaration)}
+    >
       <CardHeader>
         <div className="flex items-start justify-between">
           <div className="space-y-2">
@@ -132,6 +144,12 @@ export default function Home() {
           </p>
         </div>
       </main>
+
+      <DeclarationDetailsModal
+        declaration={selectedDeclaration}
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+      />
       
       <Footer />
     </div>

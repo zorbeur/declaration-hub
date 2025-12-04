@@ -7,6 +7,7 @@ import Home from "./pages/Home";
 import Submit from "./pages/Submit";
 import Track from "./pages/Track";
 import Admin from "./pages/Admin";
+import AdminClues from "./pages/AdminClues";
 import Login from "./pages/Login";
 import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
@@ -27,6 +28,7 @@ const App = () => (
           <Route path="/track" element={<Track />} />
           <Route path="/login" element={<Login />} />
           <Route path="/admin" element={<Admin />} />
+          <Route path="/admin/clues" element={<AdminClues />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/terms" element={<Terms />} />
           <Route path="/accessibility" element={<Accessibility />} />

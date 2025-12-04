@@ -3,8 +3,8 @@ import { Button } from "@/components/ui/button";
 import { useDataExport } from "@/hooks/useDataExport";
 import { useToast } from "@/hooks/use-toast";
 import { Declaration } from "@/types/declaration";
-import { Download, Upload, Database, FileJson } from "lucide-react";
-import { useRef } from "react";
+import { Download, Upload, Database, FileJson, Loader2, RefreshCw } from "lucide-react";
+import { useRef, useState } from "react";
 
 interface DataManagementProps {
   declarations: Declaration[];
@@ -14,6 +14,7 @@ export function DataManagement({ declarations }: DataManagementProps) {
   const { exportToCSV, exportToJSON, backupAllData, restoreFromBackup } = useDataExport();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const handleExportCSV = () => {
     exportToCSV(declarations);
@@ -47,6 +48,48 @@ export function DataManagement({ declarations }: DataManagementProps) {
     }
   };
 
+  const handleSyncData = async () => {
+    setIsSyncing(true);
+    try {
+      const pendingDeclarations = localStorage.getItem("declarations");
+      if (!pendingDeclarations) {
+        toast({
+          title: "Aucune donnée à synchroniser",
+          description: "Le localStorage est vide",
+        });
+        setIsSyncing(false);
+        return;
+      }
+
+      const data = JSON.parse(pendingDeclarations);
+      const declarationsToSync = Array.isArray(data) ? data : [];
+
+      if (declarationsToSync.length === 0) {
+        toast({
+          title: "Aucune donnée à synchroniser",
+          description: "Toutes les données sont déjà synchronisées",
+        });
+        setIsSyncing(false);
+        return;
+      }
+
+      const result = await (await import('@/lib/api')).default.post('/api/sync/', { declarations: declarationsToSync });
+      
+      toast({
+        title: "Synchronisation réussie",
+        description: `${result.synced_count} déclaration(s) synchronisée(s)${result.error_count > 0 ? `, ${result.error_count} erreur(s)` : ''}`,
+      });
+    } catch (error) {
+      toast({
+        title: "Erreur de synchronisation",
+        description: error instanceof Error ? error.message : "Une erreur est survenue",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -56,7 +99,7 @@ export function DataManagement({ declarations }: DataManagementProps) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-3">
           <div className="space-y-3">
             <h4 className="font-medium text-sm">Exporter les déclarations</h4>
             <div className="flex gap-2">
@@ -87,6 +130,23 @@ export function DataManagement({ declarations }: DataManagementProps) {
                 Restaurer
               </Button>
             </div>
+          </div>
+
+          <div className="space-y-3">
+            <h4 className="font-medium text-sm">Synchroniser</h4>
+            <Button 
+              variant="outline" 
+              onClick={handleSyncData} 
+              disabled={isSyncing}
+              className="w-full gap-2"
+            >
+              {isSyncing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+              {isSyncing ? "Sync..." : "Sync DB"}
+            </Button>
           </div>
         </div>
 

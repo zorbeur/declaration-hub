@@ -1,0 +1,16 @@
+{
+  "name": "api-mail-sender",
+  "version": "1.0.0",
+  "description": "Small mail sender used by Django API (mail.js)",
+  "main": "mail.js",
+  "scripts": {
+    "send": "node mail.js"
+  },
+  "dependencies": {
+    "nodemailer": "^6.9.4",
+    "react-google-recaptcha": "^3.1.0"
+  },
+  "devDependencies": {
+    "@types/react-google-recaptcha": "^2.1.9"
+  }
+}

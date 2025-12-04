@@ -13,7 +13,13 @@ import { useToast } from "@/hooks/use-toast";
 import { DeclarationAttachment, DeclarationType } from "@/types/declaration";
 import { Upload, X, ChevronRight, ChevronLeft, FileImage, FileText, File } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+<<<<<<< HEAD
 import { MathCaptcha } from "@/components/MathCaptcha";
+=======
+import ReCAPTCHA from "react-google-recaptcha";
+
+const RECAPTCHA_SITE_KEY = "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"; // clé de test Google
+>>>>>>> main
 
 const PLAINTE_CATEGORIES = [
   "Agression physique",
@@ -62,15 +68,22 @@ export default function Submit() {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [attachments, setAttachments] = useState<DeclarationAttachment[]>([]);
+  const [recaptchaToken, setRecaptchaToken] = useState<string>("");
 
   // Captcha state
   const [captchaVerified, setCaptchaVerified] = useState(false);
 
   // Validation functions
+  // Format strict : +228 suivi de 8 chiffres
   const validatePhone = (phone: string): boolean => {
+<<<<<<< HEAD
     // Format Togo: +228 suivi de 8 chiffres
     const phoneRegex = /^\+228[0-9]{8}$/;
     return phoneRegex.test(phone.replace(/\s/g, ''));
+=======
+    const phoneRegex = /^\+228\d{8}$/;
+    return phoneRegex.test(phone.trim());
+>>>>>>> main
   };
 
   const validateEmail = (email: string): boolean => {
@@ -176,7 +189,7 @@ export default function Submit() {
         if (!formData.phone.trim()) {
           newErrors.phone = "Le téléphone est requis";
         } else if (!validatePhone(formData.phone)) {
-          newErrors.phone = "Format de téléphone invalide";
+          newErrors.phone = "Le numéro doit être au format +228XXXXXXXX (ex: +22890112233)";
         }
         
         if (formData.email && !validateEmail(formData.email)) {
@@ -313,7 +326,7 @@ export default function Submit() {
     return `${browser}${version ? ` v${version}` : ''} - ${navigator.platform}`;
   };
 
-  const handleFinalSubmit = (e: React.MouseEvent) => {
+  const handleFinalSubmit = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
 
@@ -322,28 +335,45 @@ export default function Submit() {
     const { deviceType, deviceModel } = getDeviceInfo();
     const browserInfo = getBrowserInfo();
 
+    if (!recaptchaToken) {
+      toast({
+        title: "Vérification requise",
+        description: "Veuillez valider le CAPTCHA pour soumettre.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Use custom category if "Autre" is selected
     const finalCategory = (formData.category === "Autre objet" || formData.category === "Autre plainte")
       ? formData.customCategory
       : formData.category;
 
-    const trackingCode = addDeclaration({
-      ...formData,
-      category: finalCategory,
-      type: formData.type as DeclarationType,
-      attachments,
-      browserInfo,
-      deviceType,
-      deviceModel,
-      ipAddress: "Non disponible côté client",
-    });
+    try {
+      const trackingCode = await addDeclaration({
+        ...formData,
+        category: finalCategory,
+        type: formData.type as DeclarationType,
+        attachments,
+        browser_info: browserInfo,
+        device_type: deviceType,
+        device_model: deviceModel,
+        ip_address: null,
+      } as any, recaptchaToken);
 
-    toast({
-      title: "Déclaration enregistrée avec succès!",
-      description: `Votre code de suivi : ${trackingCode}`,
-    });
+      toast({
+        title: "Déclaration enregistrée avec succès!",
+        description: `Votre code de suivi : ${trackingCode}`,
+      });
 
-    navigate(`/track?code=${trackingCode}`);
+      navigate(`/track?code=${trackingCode}`);
+    } catch (err: any) {
+      toast({
+        title: "Erreur lors de l'envoi",
+        description: err?.message || 'Erreur serveur',
+        variant: 'destructive'
+      });
+    }
   };
 
   const categories = formData.type === "plainte" ? PLAINTE_CATEGORIES : PERTE_CATEGORIES;
@@ -389,13 +419,19 @@ export default function Submit() {
                     <Input
                       id="phone"
                       type="tel"
+<<<<<<< HEAD
                       placeholder="+22890123456"
+=======
+                      placeholder="+228XXXXXXXX"
+>>>>>>> main
                       value={formData.phone}
                       onChange={(e) => {
                         setFormData({ ...formData, phone: e.target.value });
                         if (errors.phone) setErrors({ ...errors, phone: '' });
                       }}
                       className={errors.phone ? "border-destructive" : ""}
+                      pattern="^\+228\d{8}$"
+                      maxLength={12}
                     />
                     <p className="text-xs text-muted-foreground">Format: +228 suivi de 8 chiffres</p>
                     {errors.phone && (
@@ -679,6 +715,7 @@ export default function Submit() {
                 </div>
               )}
 
+<<<<<<< HEAD
               {/* Captcha - Only on step 4 */}
               {currentStep === 4 && (
                 <div className="animate-fade-in">
@@ -688,6 +725,22 @@ export default function Submit() {
                   )}
                 </div>
               )}
+=======
+              {/* reCAPTCHA widget - centered and styled */}
+              <div className="pt-4">
+                <div className="mx-auto max-w-md p-4 border border-border rounded-md bg-muted/50">
+                  <label className="text-sm font-medium mb-2 block">Vérification anti-robots</label>
+                  <p className="text-xs text-muted-foreground mb-3">Protégez votre soumission contre les robots. Cliquez sur la case pour vérifier.</p>
+                  <div className="flex justify-center">
+                    <ReCAPTCHA
+                      sitekey={RECAPTCHA_SITE_KEY}
+                      onChange={token => setRecaptchaToken(token || "")}
+                      theme="light"
+                    />
+                  </div>
+                </div>
+              </div>
+>>>>>>> main
 
               {/* Navigation buttons */}
               <div className="flex justify-between pt-4 border-t">
@@ -717,6 +770,12 @@ export default function Submit() {
         </Card>
       </main>
       <Footer />
+      <div className="mt-6">
+        <ReCAPTCHA
+          sitekey={RECAPTCHA_SITE_KEY}
+          onChange={token => setRecaptchaToken(token || "")}
+        />
+      </div>
     </div>
   );
 }

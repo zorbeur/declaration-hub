@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { useDeclarations } from "@/hooks/useDeclarations";
+import { DeclarationDetailsModal } from "@/components/DeclarationDetailsModal";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, MapPin, FileText, Gift, Lightbulb } from "lucide-react";
@@ -8,12 +10,23 @@ import { TipSubmitForm } from "@/components/TipSubmitForm";
 import { useState } from "react";
 
 export default function Home() {
+<<<<<<< HEAD
   const { getValidatedDeclarations, addTip, getDeclarationById } = useDeclarations();
+=======
+  const [selectedDeclaration, setSelectedDeclaration] = useState<any | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const { getValidatedDeclarations } = useDeclarations();
+>>>>>>> main
   const validatedDeclarations = getValidatedDeclarations();
   const [expandedCard, setExpandedCard] = useState<string | null>(null);
   
   // Séparer les déclarations de perte des plaintes
   const lossDeclarations = validatedDeclarations.filter(d => d.type === "perte");
+
+  const openDeclarationDetails = (declaration: any) => {
+    setSelectedDeclaration(declaration);
+    setModalOpen(true);
+  };
 
   const getPriorityColor = (priority?: string) => {
     switch (priority) {
@@ -41,6 +54,7 @@ export default function Home() {
     }
   };
 
+<<<<<<< HEAD
   const handleTipSubmit = (tip: any) => {
     const declaration = getDeclarationById(tip.declarationId);
     if (declaration) {
@@ -75,6 +89,23 @@ export default function Home() {
                 )}
               </div>
               <CardTitle className="text-xl">{declaration.category}</CardTitle>
+=======
+  const DeclarationCard = ({ declaration }: { declaration: any }) => (
+    <Card
+      className="hover:shadow-lg transition-all duration-300 hover:scale-[1.02] cursor-pointer"
+      onClick={() => openDeclarationDetails(declaration)}
+    >
+      <CardHeader>
+        <div className="flex items-start justify-between">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge variant="outline" className="font-mono text-xs">
+                {declaration.trackingCode}
+              </Badge>
+              <Badge className={getPriorityColor(declaration.priority)}>
+                {getPriorityLabel(declaration.priority)}
+              </Badge>
+>>>>>>> main
             </div>
             <FileText className="h-6 w-6 text-primary" />
           </div>
@@ -196,6 +227,12 @@ export default function Home() {
           </p>
         </div>
       </main>
+
+      <DeclarationDetailsModal
+        declaration={selectedDeclaration}
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+      />
       
       <Footer />
     </div>

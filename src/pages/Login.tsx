@@ -22,7 +22,9 @@ export default function Login() {
     hasAdminAccess, 
     verify2FA, 
     pendingVerification,
-    cancelPending2FA 
+    cancelPending2FA,
+    error: authError,
+    setError: setAuthError
   } = useAuth();
   const { toast } = useToast();
   const [isRegistering, setIsRegistering] = useState(isFirstSetup);
@@ -49,22 +51,21 @@ export default function Login() {
     setIsRegistering(isFirstSetup);
   }, [isFirstSetup]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setAuthError("");
 
     if (isRegistering) {
       if (formData.password !== formData.confirmPassword) {
         setError("Les mots de passe ne correspondent pas");
         return;
       }
-      
-      if (formData.password.length < 6) {
-        setError("Le mot de passe doit contenir au moins 6 caractères");
+      if (formData.password.length < 8) {
+        setError("Le mot de passe doit contenir au moins 8 caractères");
         return;
       }
-
-      const result = register(formData.username, formData.email, formData.password, formData.enable2FA);
+      const result = await register(formData.username, formData.email, formData.password);
       if (result.success) {
         toast({
           title: "Compte créé",
@@ -75,10 +76,10 @@ export default function Login() {
         setIsRegistering(false);
         setFormData({ ...formData, password: "", confirmPassword: "" });
       } else {
-        setError(result.error || "Erreur lors de la création du compte");
+        setError(result.error || authError || "Erreur lors de la création du compte");
       }
     } else {
-      const result = login(formData.username, formData.password);
+      const result = await login(formData.username, formData.password);
       if (result.success) {
         toast({
           title: "Connexion réussie",
@@ -92,7 +93,7 @@ export default function Login() {
           description: "Entrez le code de vérification à 6 chiffres",
         });
       } else {
-        setError(result.error || "Erreur de connexion");
+        setError(result.error || authError || "Erreur de connexion");
       }
     }
   };
@@ -230,10 +231,10 @@ export default function Login() {
           </CardHeader>
           
           <CardContent>
-            {error && (
+            {(error || authError) && (
               <Alert variant="destructive" className="mb-4">
                 <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
+                <AlertDescription>{error || authError}</AlertDescription>
               </Alert>
             )}
             

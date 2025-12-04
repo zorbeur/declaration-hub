@@ -420,4 +420,4 @@ Tous les éléments demandés ont été implémentés et testés :
 
 ---
 
-*Généré le 3 décembre 2025*
+*rédiger le 3 décembre 2025*

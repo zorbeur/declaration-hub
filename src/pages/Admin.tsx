@@ -19,6 +19,8 @@ import { AdminUsers } from "@/components/admin/AdminUsers";
 import { ActivityLogViewer } from "@/components/admin/ActivityLogViewer";
 import { DataManagement } from "@/components/admin/DataManagement";
 import { AdvancedFilters } from "@/components/admin/AdvancedFilters";
+import { TipsViewer } from "@/components/admin/TipsViewer";
+import { STATUS_LABELS, STATUS_COLORS } from "@/types/declaration";
 
 export default function Admin() {
   const navigate = useNavigate();
@@ -54,15 +56,18 @@ export default function Admin() {
     
     // Log the activity
     if (declaration) {
-      const actionText = status === "validee" ? "Déclaration validée" : 
-                        status === "rejetee" ? "Déclaration rejetée" : 
-                        "Statut modifié";
+      const actionType = status === "validee" ? "declaration_validee" : 
+                        status === "rejetee" ? "declaration_rejetee" :
+                        status === "en_cours" ? "declaration_en_cours" :
+                        status === "resolue" ? "declaration_resolue" :
+                        status === "classee" ? "declaration_classee" : "autre";
       addLog(
         currentUser?.id || "unknown",
         currentUser?.username || "Admin",
-        actionText,
-        `${actionText} - ${declaration.trackingCode}${priority ? ` avec priorité ${priority}` : ""}`,
-        id
+        actionType as any,
+        `Statut modifié vers ${status} - ${declaration.trackingCode}${priority ? ` avec priorité ${priority}` : ""}`,
+        id,
+        declaration.trackingCode
       );
     }
     
@@ -137,13 +142,19 @@ export default function Admin() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="declarations">Déclarations</TabsTrigger>
+            <TabsTrigger value="tips">Indices</TabsTrigger>
             <TabsTrigger value="stats">Statistiques</TabsTrigger>
             <TabsTrigger value="users">Utilisateurs</TabsTrigger>
             <TabsTrigger value="activity">Activité</TabsTrigger>
             <TabsTrigger value="data">Données</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="tips" className="space-y-6">
+            <TipsViewer />
+          </TabsContent>
+
 
           <TabsContent value="declarations" className="space-y-6">
             <AdminStats declarations={declarations} />

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Declaration, DeclarationStatus, Priority } from "@/types/declaration";
+import { Declaration, DeclarationStatus, Priority, Tip, Message } from "@/types/declaration";
 
 const STORAGE_KEY = "declarations";
 
@@ -58,7 +58,7 @@ export const useDeclarations = () => {
     return code;
   };
 
-  const addDeclaration = (declaration: Omit<Declaration, "id" | "trackingCode" | "status" | "createdAt" | "updatedAt">) => {
+  const addDeclaration = (declaration: Omit<Declaration, "id" | "trackingCode" | "status" | "createdAt" | "updatedAt" | "statusHistory" | "tips" | "messages">) => {
     const newDeclaration: Declaration = {
       ...declaration,
       id: crypto.randomUUID(),
@@ -66,12 +66,27 @@ export const useDeclarations = () => {
       status: "en_attente",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+      statusHistory: [{
+        status: "en_attente",
+        changedBy: "Système",
+        changedAt: new Date().toISOString(),
+        comment: "Déclaration créée"
+      }],
+      tips: [],
+      messages: [],
     };
     saveDeclarations([...declarations, newDeclaration]);
     return newDeclaration.trackingCode;
   };
 
-  const updateDeclarationStatus = (id: string, status: DeclarationStatus, priority?: Priority, validatedBy?: string) => {
+  const updateDeclarationStatus = (
+    id: string, 
+    status: DeclarationStatus, 
+    priority?: Priority, 
+    validatedBy?: string,
+    comment?: string,
+    assignedTo?: string
+  ) => {
     const updated = declarations.map((d) =>
       d.id === id
         ? {
@@ -79,7 +94,87 @@ export const useDeclarations = () => {
             status,
             priority,
             validatedBy,
+            assignedTo: assignedTo || d.assignedTo,
             updatedAt: new Date().toISOString(),
+            statusHistory: [
+              ...(d.statusHistory || []),
+              {
+                status,
+                changedBy: validatedBy || "Système",
+                changedAt: new Date().toISOString(),
+                comment
+              }
+            ]
+          }
+        : d
+    );
+    saveDeclarations(updated);
+  };
+
+  const addTip = (declarationId: string, tip: Omit<Tip, "id" | "createdAt" | "isRead">) => {
+    const updated = declarations.map((d) =>
+      d.id === declarationId
+        ? {
+            ...d,
+            tips: [
+              ...(d.tips || []),
+              {
+                ...tip,
+                id: crypto.randomUUID(),
+                createdAt: new Date().toISOString(),
+                isRead: false,
+              }
+            ],
+            updatedAt: new Date().toISOString(),
+          }
+        : d
+    );
+    saveDeclarations(updated);
+  };
+
+  const markTipAsRead = (declarationId: string, tipId: string) => {
+    const updated = declarations.map((d) =>
+      d.id === declarationId
+        ? {
+            ...d,
+            tips: d.tips?.map(tip => 
+              tip.id === tipId ? { ...tip, isRead: true } : tip
+            )
+          }
+        : d
+    );
+    saveDeclarations(updated);
+  };
+
+  const addMessage = (declarationId: string, message: Omit<Message, "id" | "createdAt" | "isRead">) => {
+    const updated = declarations.map((d) =>
+      d.id === declarationId
+        ? {
+            ...d,
+            messages: [
+              ...(d.messages || []),
+              {
+                ...message,
+                id: crypto.randomUUID(),
+                createdAt: new Date().toISOString(),
+                isRead: false,
+              }
+            ],
+            updatedAt: new Date().toISOString(),
+          }
+        : d
+    );
+    saveDeclarations(updated);
+  };
+
+  const markMessagesAsRead = (declarationId: string, senderType: "admin" | "declarant") => {
+    const updated = declarations.map((d) =>
+      d.id === declarationId
+        ? {
+            ...d,
+            messages: d.messages?.map(msg => 
+              msg.senderType !== senderType ? { ...msg, isRead: true } : msg
+            )
           }
         : d
     );
@@ -88,6 +183,10 @@ export const useDeclarations = () => {
 
   const getDeclarationByCode = (code: string) => {
     return declarations.find((d) => d.trackingCode === code);
+  };
+
+  const getDeclarationById = (id: string) => {
+    return declarations.find((d) => d.id === id);
   };
 
   const getValidatedDeclarations = () => {
@@ -102,11 +201,51 @@ export const useDeclarations = () => {
       });
   };
 
+  const getUnreadTipsCount = () => {
+    return declarations.reduce((count, d) => {
+      return count + (d.tips?.filter(t => !t.isRead).length || 0);
+    }, 0);
+  };
+
+  const getUnreadMessagesCount = (forAdmin: boolean = true) => {
+    return declarations.reduce((count, d) => {
+      return count + (d.messages?.filter(m => !m.isRead && (forAdmin ? m.senderType === "declarant" : m.senderType === "admin")).length || 0);
+    }, 0);
+  };
+
+  // Export all data for backup
+  const exportData = () => {
+    return JSON.stringify(declarations, null, 2);
+  };
+
+  // Import data from backup
+  const importData = (data: string) => {
+    try {
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed)) {
+        saveDeclarations(parsed);
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  };
+
   return {
     declarations,
     addDeclaration,
     updateDeclarationStatus,
     getDeclarationByCode,
+    getDeclarationById,
     getValidatedDeclarations,
+    addTip,
+    markTipAsRead,
+    addMessage,
+    markMessagesAsRead,
+    getUnreadTipsCount,
+    getUnreadMessagesCount,
+    exportData,
+    importData,
   };
 };

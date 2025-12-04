@@ -3,11 +3,14 @@ import { Footer } from "@/components/Footer";
 import { useDeclarations } from "@/hooks/useDeclarations";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, MapPin, FileText, AlertTriangle } from "lucide-react";
+import { Calendar, MapPin, FileText, Gift, Lightbulb } from "lucide-react";
+import { TipSubmitForm } from "@/components/TipSubmitForm";
+import { useState } from "react";
 
 export default function Home() {
-  const { getValidatedDeclarations } = useDeclarations();
+  const { getValidatedDeclarations, addTip, getDeclarationById } = useDeclarations();
   const validatedDeclarations = getValidatedDeclarations();
+  const [expandedCard, setExpandedCard] = useState<string | null>(null);
   
   // Séparer les déclarations de perte des plaintes
   const lossDeclarations = validatedDeclarations.filter(d => d.type === "perte");
@@ -38,41 +41,89 @@ export default function Home() {
     }
   };
 
-  const DeclarationCard = ({ declaration }: { declaration: any }) => (
-    <Card className="hover:shadow-lg transition-all duration-300 hover:scale-[1.02]">
-      <CardHeader>
-        <div className="flex items-start justify-between">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 flex-wrap">
-              <Badge variant="outline" className="font-mono text-xs">
-                {declaration.trackingCode}
-              </Badge>
-              <Badge className={getPriorityColor(declaration.priority)}>
-                {getPriorityLabel(declaration.priority)}
-              </Badge>
+  const handleTipSubmit = (tip: any) => {
+    const declaration = getDeclarationById(tip.declarationId);
+    if (declaration) {
+      addTip(declaration.id, tip);
+    }
+  };
+
+  const DeclarationCard = ({ declaration }: { declaration: any }) => {
+    const isExpanded = expandedCard === declaration.id;
+    const tipsCount = declaration.tips?.length || 0;
+
+    return (
+      <Card className="hover:shadow-lg transition-all duration-300">
+        <CardHeader 
+          className="cursor-pointer" 
+          onClick={() => setExpandedCard(isExpanded ? null : declaration.id)}
+        >
+          <div className="flex items-start justify-between">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge variant="outline" className="font-mono text-xs">
+                  {declaration.trackingCode}
+                </Badge>
+                <Badge className={getPriorityColor(declaration.priority)}>
+                  {getPriorityLabel(declaration.priority)}
+                </Badge>
+                {tipsCount > 0 && (
+                  <Badge variant="secondary" className="gap-1">
+                    <Lightbulb className="h-3 w-3" />
+                    {tipsCount} indice{tipsCount > 1 ? "s" : ""}
+                  </Badge>
+                )}
+              </div>
+              <CardTitle className="text-xl">{declaration.category}</CardTitle>
             </div>
-            <CardTitle className="text-xl">{declaration.category}</CardTitle>
+            <FileText className="h-6 w-6 text-primary" />
           </div>
-          <FileText className="h-6 w-6 text-primary" />
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <p className="text-sm text-muted-foreground line-clamp-2">
-          {declaration.description}
-        </p>
-        <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
-          <div className="flex items-center gap-1.5">
-            <Calendar className="h-3.5 w-3.5" />
-            {new Date(declaration.incidentDate).toLocaleDateString("fr-FR")}
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground line-clamp-2">
+            {declaration.description}
+          </p>
+          <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1.5">
+              <Calendar className="h-3.5 w-3.5" />
+              {new Date(declaration.incidentDate).toLocaleDateString("fr-FR")}
+            </div>
+            <div className="flex items-center gap-1.5">
+              <MapPin className="h-3.5 w-3.5" />
+              {declaration.location}
+            </div>
           </div>
-          <div className="flex items-center gap-1.5">
-            <MapPin className="h-3.5 w-3.5" />
-            {declaration.location}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
+
+          {/* Reward display */}
+          {declaration.reward && (
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-primary/5 border border-primary/10">
+              <Gift className="h-4 w-4 text-primary" />
+              <span className="text-sm font-medium text-primary">
+                Récompense: {declaration.reward}
+              </span>
+            </div>
+          )}
+
+          {/* Tip submission form */}
+          {isExpanded && (
+            <div className="pt-4 border-t animate-fade-in">
+              <TipSubmitForm
+                declarationId={declaration.id}
+                trackingCode={declaration.trackingCode}
+                onSubmit={handleTipSubmit}
+              />
+            </div>
+          )}
+
+          {!isExpanded && (
+            <p className="text-xs text-center text-muted-foreground pt-2">
+              Cliquez pour partager un indice
+            </p>
+          )}
+        </CardContent>
+      </Card>
+    );
+  };
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -85,7 +136,7 @@ export default function Home() {
             Déclarations Publiques
           </h1>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Consultez les déclarations de perte validées par notre service
+            Consultez les déclarations de perte validées et partagez vos indices
           </p>
         </div>
 
@@ -129,6 +180,19 @@ export default function Home() {
             Seules les déclarations de perte validées sont affichées publiquement. 
             Les informations personnelles (nom, téléphone, email) ne sont jamais rendues publiques. 
             Les plaintes ne sont pas affichées publiquement pour protéger la vie privée des déclarants.
+          </p>
+        </div>
+
+        {/* Tip info */}
+        <div className="mt-6 p-6 rounded-2xl bg-primary/5 border border-primary/10">
+          <h3 className="font-semibold mb-2 flex items-center gap-2">
+            <Lightbulb className="h-5 w-5 text-primary" />
+            Partager un indice
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            Si vous avez des informations concernant un objet perdu, vous pouvez partager un indice 
+            en cliquant sur la déclaration correspondante. Votre numéro de téléphone sera transmis 
+            uniquement à l'administrateur pour faciliter la prise de contact.
           </p>
         </div>
       </main>

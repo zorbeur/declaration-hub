@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { DeclarationAttachment, DeclarationType } from "@/types/declaration";
 import { Upload, X, ChevronRight, ChevronLeft, FileImage, FileText, File } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import { MathCaptcha } from "@/components/MathCaptcha";
 
 const PLAINTE_CATEGORIES = [
   "Agression physique",
@@ -62,9 +63,13 @@ export default function Submit() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [attachments, setAttachments] = useState<DeclarationAttachment[]>([]);
 
+  // Captcha state
+  const [captchaVerified, setCaptchaVerified] = useState(false);
+
   // Validation functions
   const validatePhone = (phone: string): boolean => {
-    const phoneRegex = /^(\+221|00221)?[0-9\s]{9,15}$/;
+    // Format Togo: +228 suivi de 8 chiffres
+    const phoneRegex = /^\+228[0-9]{8}$/;
     return phoneRegex.test(phone.replace(/\s/g, ''));
   };
 
@@ -207,6 +212,12 @@ export default function Submit() {
           newErrors.location = "Le lieu est requis";
         } else if (formData.location.trim().length < 5) {
           newErrors.location = "Veuillez préciser davantage le lieu";
+        }
+        break;
+
+      case 4:
+        if (!captchaVerified) {
+          newErrors.captcha = "Veuillez résoudre le captcha";
         }
         break;
 
@@ -378,7 +389,7 @@ export default function Submit() {
                     <Input
                       id="phone"
                       type="tel"
-                      placeholder="+221 XX XXX XX XX"
+                      placeholder="+22890123456"
                       value={formData.phone}
                       onChange={(e) => {
                         setFormData({ ...formData, phone: e.target.value });
@@ -386,6 +397,7 @@ export default function Submit() {
                       }}
                       className={errors.phone ? "border-destructive" : ""}
                     />
+                    <p className="text-xs text-muted-foreground">Format: +228 suivi de 8 chiffres</p>
                     {errors.phone && (
                       <p className="text-sm text-destructive">{errors.phone}</p>
                     )}
@@ -667,6 +679,16 @@ export default function Submit() {
                 </div>
               )}
 
+              {/* Captcha - Only on step 4 */}
+              {currentStep === 4 && (
+                <div className="animate-fade-in">
+                  <MathCaptcha onVerified={setCaptchaVerified} />
+                  {errors.captcha && (
+                    <p className="text-sm text-destructive mt-2">{errors.captcha}</p>
+                  )}
+                </div>
+              )}
+
               {/* Navigation buttons */}
               <div className="flex justify-between pt-4 border-t">
                 {currentStep > 1 ? (
@@ -684,7 +706,7 @@ export default function Submit() {
                       <ChevronRight className="h-4 w-4 ml-2" />
                     </Button>
                   ) : (
-                    <Button type="button" onClick={handleFinalSubmit}>
+                    <Button type="button" onClick={handleFinalSubmit} disabled={!captchaVerified}>
                       Soumettre la déclaration
                     </Button>
                   )}

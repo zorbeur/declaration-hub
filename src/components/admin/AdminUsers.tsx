@@ -5,15 +5,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { UserPlus, Trash2, Shield } from "lucide-react";
+import { useActivityLog } from "@/hooks/useActivityLog";
+import { UserPlus, Shield, ShieldCheck, ShieldOff } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export function AdminUsers() {
   const { toast } = useToast();
   const auth = useAuth();
+  const { addLog } = useActivityLog();
   const [showAddDialog, setShowAddDialog] = useState(false);
-  const [newUser, setNewUser] = useState({ username: "", email: "", password: "" });
+  const [newUser, setNewUser] = useState({ username: "", email: "", password: "", enable2FA: false });
 
   const users = JSON.parse(localStorage.getItem("admin_users") || "[]");
 
@@ -23,26 +27,65 @@ export function AdminUsers() {
       return;
     }
 
-    const result = auth.register(newUser.username, newUser.email, newUser.password);
+    const result = auth.register(newUser.username, newUser.email, newUser.password, newUser.enable2FA);
     if (result.success) {
+      // Log the action
+      if (auth.currentUser) {
+        addLog(
+          auth.currentUser.id,
+          auth.currentUser.username,
+          "utilisateur_ajoute",
+          `Nouvel administrateur créé: ${newUser.username}`,
+          undefined,
+          undefined,
+          { newUsername: newUser.username, newEmail: newUser.email, has2FA: newUser.enable2FA }
+        );
+      }
+
       toast({ title: "Utilisateur ajouté avec succès" });
       setShowAddDialog(false);
-      setNewUser({ username: "", email: "", password: "" });
+      setNewUser({ username: "", email: "", password: "", enable2FA: false });
     } else {
       toast({ title: result.error || "Erreur lors de l'ajout", variant: "destructive" });
     }
   };
 
-  const handleDeleteUser = (userId: string) => {
-    if (userId === auth.currentUser?.id) {
-      toast({ title: "Vous ne pouvez pas supprimer votre propre compte", variant: "destructive" });
-      return;
+  const handleToggle2FA = (userId: string, currentlyEnabled: boolean) => {
+    if (currentlyEnabled) {
+      const result = auth.disable2FA(userId);
+      if (result.success) {
+        if (auth.currentUser) {
+          addLog(
+            auth.currentUser.id,
+            auth.currentUser.username,
+            "2fa_desactive",
+            `2FA désactivé pour l'utilisateur`,
+            undefined,
+            undefined,
+            { targetUserId: userId }
+          );
+        }
+        toast({ title: "2FA désactivé" });
+        window.location.reload();
+      }
+    } else {
+      const result = auth.enable2FA(userId);
+      if (result.success) {
+        if (auth.currentUser) {
+          addLog(
+            auth.currentUser.id,
+            auth.currentUser.username,
+            "2fa_active",
+            `2FA activé pour l'utilisateur`,
+            undefined,
+            undefined,
+            { targetUserId: userId }
+          );
+        }
+        toast({ title: "2FA activé" });
+        window.location.reload();
+      }
     }
-
-    const updatedUsers = users.filter((u: any) => u.id !== userId);
-    localStorage.setItem("admin_users", JSON.stringify(updatedUsers));
-    toast({ title: "Utilisateur supprimé" });
-    window.location.reload();
   };
 
   return (
@@ -58,6 +101,13 @@ export function AdminUsers() {
           </div>
         </CardHeader>
         <CardContent>
+          <Alert className="mb-4">
+            <Shield className="h-4 w-4" />
+            <AlertDescription>
+              Les administrateurs ne peuvent pas être supprimés. Contactez le super-administrateur pour la gestion des comptes.
+            </AlertDescription>
+          </Alert>
+
           <div className="space-y-4">
             {users.length === 0 ? (
               <p className="text-center text-muted-foreground py-8">Aucun utilisateur</p>
@@ -72,7 +122,15 @@ export function AdminUsers() {
                       <Shield className="h-5 w-5 text-primary" />
                     </div>
                     <div>
-                      <p className="font-medium">{user.username}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium">{user.username}</p>
+                        {user.twoFactorEnabled && (
+                          <Badge variant="outline" className="text-xs gap-1">
+                            <ShieldCheck className="h-3 w-3" />
+                            2FA
+                          </Badge>
+                        )}
+                      </div>
                       <p className="text-sm text-muted-foreground">{user.email}</p>
                       <p className="text-xs text-muted-foreground mt-1">
                         Créé le {new Date(user.createdAt).toLocaleDateString("fr-FR")}
@@ -86,11 +144,20 @@ export function AdminUsers() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleDeleteUser(user.id)}
-                      disabled={user.id === auth.currentUser?.id}
+                      onClick={() => handleToggle2FA(user.id, user.twoFactorEnabled)}
                       className="gap-2"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      {user.twoFactorEnabled ? (
+                        <>
+                          <ShieldOff className="h-4 w-4" />
+                          Désactiver 2FA
+                        </>
+                      ) : (
+                        <>
+                          <ShieldCheck className="h-4 w-4" />
+                          Activer 2FA
+                        </>
+                      )}
                     </Button>
                   </div>
                 </div>
@@ -131,6 +198,16 @@ export function AdminUsers() {
                 onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
                 placeholder="••••••••"
               />
+            </div>
+            <div className="flex items-center space-x-2 py-2">
+              <Checkbox
+                id="enable2FA"
+                checked={newUser.enable2FA}
+                onCheckedChange={(checked) => setNewUser({ ...newUser, enable2FA: checked as boolean })}
+              />
+              <Label htmlFor="enable2FA" className="text-sm font-normal cursor-pointer">
+                Activer l'authentification à deux facteurs (2FA)
+              </Label>
             </div>
             <div className="flex gap-2 pt-4">
               <Button onClick={handleAddUser} className="flex-1">

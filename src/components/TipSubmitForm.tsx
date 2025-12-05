@@ -13,12 +13,12 @@ interface TipSubmitFormProps {
   declarationId: string;
   trackingCode: string;
   onSubmit: (tip: Omit<Tip, "id" | "createdAt" | "isRead">) => void;
+  isInModal?: boolean;
 }
 
-export function TipSubmitForm({ declarationId, trackingCode, onSubmit }: TipSubmitFormProps) {
+export function TipSubmitForm({ declarationId, trackingCode, onSubmit, isInModal = false }: TipSubmitFormProps) {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isOpen, setIsOpen] = useState(false);
   const [captchaVerified, setCaptchaVerified] = useState(false);
   
   const [formData, setFormData] = useState({
@@ -120,36 +120,11 @@ export function TipSubmitForm({ declarationId, trackingCode, onSubmit }: TipSubm
     // Reset form
     setFormData({ tipsterPhone: "", description: "" });
     setAttachments([]);
-    setIsOpen(false);
     setCaptchaVerified(false);
   };
 
-  if (!isOpen) {
-    return (
-      <Button 
-        onClick={() => setIsOpen(true)} 
-        variant="outline" 
-        className="w-full gap-2"
-      >
-        <Lightbulb className="h-4 w-4" />
-        J'ai un indice à partager
-      </Button>
-    );
-  }
-
   return (
-    <Card className="border-primary/20">
-      <CardHeader className="pb-4">
-        <CardTitle className="text-lg flex items-center gap-2">
-          <Lightbulb className="h-5 w-5 text-primary" />
-          Soumettre un indice
-        </CardTitle>
-        <CardDescription>
-          Code de suivi: {trackingCode}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="tipsterPhone">Votre numéro de téléphone *</Label>
             <Input
@@ -231,21 +206,10 @@ export function TipSubmitForm({ declarationId, trackingCode, onSubmit }: TipSubm
             <p className="text-sm text-destructive">{errors.captcha}</p>
           )}
 
-          <div className="flex gap-2">
-            <Button type="submit" className="flex-1 gap-2">
-              <Send className="h-4 w-4" />
-              Envoyer l'indice
-            </Button>
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={() => setIsOpen(false)}
-            >
-              Annuler
-            </Button>
-          </div>
-        </form>
-      </CardContent>
-    </Card>
+      <Button type="submit" className="w-full gap-2">
+        <Send className="h-4 w-4" />
+        Envoyer l'indice
+      </Button>
+    </form>
   );
 }

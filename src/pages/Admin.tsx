@@ -20,6 +20,7 @@ import { ActivityLogViewer } from "@/components/admin/ActivityLogViewer";
 import { DataManagement } from "@/components/admin/DataManagement";
 import { AdvancedFilters } from "@/components/admin/AdvancedFilters";
 import { TipsViewer } from "@/components/admin/TipsViewer";
+import { ComplaintManagement } from "@/components/admin/ComplaintManagement";
 import { STATUS_LABELS, STATUS_COLORS } from "@/types/declaration";
 
 export default function Admin() {
@@ -142,14 +143,19 @@ export default function Admin() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="declarations">Déclarations</TabsTrigger>
+            <TabsTrigger value="plaintes">Plaintes</TabsTrigger>
             <TabsTrigger value="tips">Indices</TabsTrigger>
             <TabsTrigger value="stats">Statistiques</TabsTrigger>
             <TabsTrigger value="users">Utilisateurs</TabsTrigger>
             <TabsTrigger value="activity">Activité</TabsTrigger>
             <TabsTrigger value="data">Données</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="plaintes" className="space-y-6">
+            <ComplaintManagement />
+          </TabsContent>
 
           <TabsContent value="tips" className="space-y-6">
             <TipsViewer />

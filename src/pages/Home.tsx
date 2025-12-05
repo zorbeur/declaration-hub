@@ -1,16 +1,19 @@
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { useDeclarations } from "@/hooks/useDeclarations";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Calendar, MapPin, FileText, Gift, Lightbulb } from "lucide-react";
 import { TipSubmitForm } from "@/components/TipSubmitForm";
 import { useState } from "react";
+import { Declaration } from "@/types/declaration";
 
 export default function Home() {
   const { getValidatedDeclarations, addTip, getDeclarationById } = useDeclarations();
   const validatedDeclarations = getValidatedDeclarations();
-  const [expandedCard, setExpandedCard] = useState<string | null>(null);
+  const [selectedDeclaration, setSelectedDeclaration] = useState<Declaration | null>(null);
   
   // Séparer les déclarations de perte des plaintes
   const lossDeclarations = validatedDeclarations.filter(d => d.type === "perte");
@@ -42,22 +45,18 @@ export default function Home() {
   };
 
   const handleTipSubmit = (tip: any) => {
-    const declaration = getDeclarationById(tip.declarationId);
-    if (declaration) {
-      addTip(declaration.id, tip);
+    if (selectedDeclaration) {
+      addTip(selectedDeclaration.id, tip);
+      setSelectedDeclaration(null);
     }
   };
 
-  const DeclarationCard = ({ declaration }: { declaration: any }) => {
-    const isExpanded = expandedCard === declaration.id;
+  const DeclarationCard = ({ declaration }: { declaration: Declaration }) => {
     const tipsCount = declaration.tips?.length || 0;
 
     return (
       <Card className="hover:shadow-lg transition-all duration-300">
-        <CardHeader 
-          className="cursor-pointer" 
-          onClick={() => setExpandedCard(isExpanded ? null : declaration.id)}
-        >
+        <CardHeader>
           <div className="flex items-start justify-between">
             <div className="space-y-2">
               <div className="flex items-center gap-2 flex-wrap">
@@ -104,22 +103,15 @@ export default function Home() {
             </div>
           )}
 
-          {/* Tip submission form */}
-          {isExpanded && (
-            <div className="pt-4 border-t animate-fade-in">
-              <TipSubmitForm
-                declarationId={declaration.id}
-                trackingCode={declaration.trackingCode}
-                onSubmit={handleTipSubmit}
-              />
-            </div>
-          )}
-
-          {!isExpanded && (
-            <p className="text-xs text-center text-muted-foreground pt-2">
-              Cliquez pour partager un indice
-            </p>
-          )}
+          {/* Button to open tip modal */}
+          <Button 
+            variant="outline" 
+            className="w-full gap-2"
+            onClick={() => setSelectedDeclaration(declaration)}
+          >
+            <Lightbulb className="h-4 w-4" />
+            J'ai un indice à partager
+          </Button>
         </CardContent>
       </Card>
     );
@@ -196,6 +188,33 @@ export default function Home() {
           </p>
         </div>
       </main>
+
+      {/* Tip Submission Modal */}
+      <Dialog open={!!selectedDeclaration} onOpenChange={() => setSelectedDeclaration(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Lightbulb className="h-5 w-5 text-primary" />
+              Soumettre un indice
+            </DialogTitle>
+          </DialogHeader>
+          {selectedDeclaration && (
+            <div className="space-y-4">
+              <div className="p-3 rounded-lg bg-muted">
+                <p className="text-sm text-muted-foreground">Déclaration concernée:</p>
+                <p className="font-medium">{selectedDeclaration.category}</p>
+                <p className="text-xs text-muted-foreground font-mono">{selectedDeclaration.trackingCode}</p>
+              </div>
+              <TipSubmitForm
+                declarationId={selectedDeclaration.id}
+                trackingCode={selectedDeclaration.trackingCode}
+                onSubmit={handleTipSubmit}
+                isInModal={true}
+              />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
       
       <Footer />
     </div>

@@ -26,14 +26,43 @@ const generateSecureTrackingCode = (): string => {
   return code;
 };
 
-export const useDeclarations = () => {
-  const [declarations, setDeclarations] = useState<Declaration[]>([]);
-
-  useEffect(() => {
+// Load declarations from localStorage synchronously to prevent data loss
+const loadDeclarationsFromStorage = (): Declaration[] => {
+  try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
-      setDeclarations(JSON.parse(stored));
+      return JSON.parse(stored);
     }
+  } catch (e) {
+    console.error("Error loading declarations from storage:", e);
+  }
+  return [];
+};
+
+export const useDeclarations = () => {
+  // Initialize from localStorage synchronously to prevent data loss
+  const [declarations, setDeclarations] = useState<Declaration[]>(() => loadDeclarationsFromStorage());
+
+  // Re-sync from localStorage on mount (in case of updates from other tabs)
+  useEffect(() => {
+    const stored = loadDeclarationsFromStorage();
+    if (stored.length > 0 && declarations.length === 0) {
+      setDeclarations(stored);
+    }
+    
+    // Listen for storage changes from other tabs
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY && e.newValue) {
+        try {
+          setDeclarations(JSON.parse(e.newValue));
+        } catch (err) {
+          console.error("Error parsing storage update:", err);
+        }
+      }
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
   const saveDeclarations = (newDeclarations: Declaration[]) => {

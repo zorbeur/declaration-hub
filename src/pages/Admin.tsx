@@ -12,14 +12,15 @@ import { useActivityLog } from "@/hooks/useActivityLog";
 import { Declaration, DeclarationStatus, Priority } from "@/types/declaration";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Eye, Download, FileText, Clock, CheckCircle, XCircle, Settings } from "lucide-react";
+import { Eye, Download, FileText, Clock, CheckCircle, XCircle, Settings, Lightbulb, Phone, FileImage, File } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Label } from "@/components/ui/label";
 import { AdminStats } from "@/components/admin/AdminStats";
 import { AdminUsers } from "@/components/admin/AdminUsers";
 import { ActivityLogViewer } from "@/components/admin/ActivityLogViewer";
 import { DataManagement } from "@/components/admin/DataManagement";
 import { AdvancedFilters } from "@/components/admin/AdvancedFilters";
-import { TipsViewer } from "@/components/admin/TipsViewer";
+
 import { ComplaintManagement } from "@/components/admin/ComplaintManagement";
 import { STATUS_LABELS, STATUS_COLORS } from "@/types/declaration";
 
@@ -143,10 +144,9 @@ export default function Admin() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-7">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="declarations">Déclarations</TabsTrigger>
             <TabsTrigger value="plaintes">Plaintes</TabsTrigger>
-            <TabsTrigger value="tips">Indices</TabsTrigger>
             <TabsTrigger value="stats">Statistiques</TabsTrigger>
             <TabsTrigger value="users">Utilisateurs</TabsTrigger>
             <TabsTrigger value="activity">Activité</TabsTrigger>
@@ -155,10 +155,6 @@ export default function Admin() {
 
           <TabsContent value="plaintes" className="space-y-6">
             <ComplaintManagement />
-          </TabsContent>
-
-          <TabsContent value="tips" className="space-y-6">
-            <TipsViewer />
           </TabsContent>
 
 
@@ -263,10 +259,18 @@ export default function Admin() {
                 <DialogTitle className="text-2xl">Détails de la déclaration</DialogTitle>
               </DialogHeader>
               <Tabs defaultValue="details" className="mt-4">
-                <TabsList className="grid w-full grid-cols-3">
+                <TabsList className="grid w-full grid-cols-4">
                   <TabsTrigger value="details">Informations</TabsTrigger>
                   <TabsTrigger value="attachments">
                     Pièces jointes ({selectedDeclaration.attachments.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="tips" className="gap-1">
+                    Indices
+                    {(selectedDeclaration.tips?.length || 0) > 0 && (
+                      <Badge variant="secondary" className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-xs">
+                        {selectedDeclaration.tips?.length}
+                      </Badge>
+                    )}
                   </TabsTrigger>
                   <TabsTrigger value="actions">Actions</TabsTrigger>
                 </TabsList>
@@ -409,6 +413,69 @@ export default function Admin() {
                         </Card>
                       ))}
                     </div>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="tips" className="space-y-4 mt-6">
+                  {!selectedDeclaration.tips || selectedDeclaration.tips.length === 0 ? (
+                    <div className="text-center py-12">
+                      <Lightbulb className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-50" />
+                      <p className="text-muted-foreground">Aucun indice reçu pour cette déclaration</p>
+                    </div>
+                  ) : (
+                    <ScrollArea className="h-[400px]">
+                      <div className="space-y-3">
+                        {selectedDeclaration.tips.map((tip) => (
+                          <Card key={tip.id} className={!tip.isRead ? "border-primary/30 bg-primary/5" : ""}>
+                            <CardContent className="p-4 space-y-3">
+                              <div className="flex items-start justify-between">
+                                <div className="flex items-center gap-2">
+                                  {!tip.isRead && (
+                                    <Badge variant="destructive" className="text-xs">Nouveau</Badge>
+                                  )}
+                                  <span className="text-xs text-muted-foreground">
+                                    {new Date(tip.createdAt).toLocaleString("fr-FR")}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Phone className="h-4 w-4 text-primary" />
+                                  <a 
+                                    href={`tel:${tip.tipsterPhone}`}
+                                    className="text-primary hover:underline font-medium text-sm"
+                                  >
+                                    {tip.tipsterPhone}
+                                  </a>
+                                </div>
+                              </div>
+                              
+                              <p className="text-sm whitespace-pre-wrap">{tip.description}</p>
+                              
+                              {tip.attachments && tip.attachments.length > 0 && (
+                                <div className="grid gap-2 pt-2 border-t">
+                                  <p className="text-xs text-muted-foreground">Pièces jointes:</p>
+                                  {tip.attachments.map((att) => (
+                                    <div key={att.id}>
+                                      {att.type.startsWith('image/') ? (
+                                        <img 
+                                          src={att.data} 
+                                          alt={att.name}
+                                          className="rounded-lg border max-h-40 object-contain"
+                                        />
+                                      ) : (
+                                        <div className="flex items-center gap-2 p-2 border rounded text-sm">
+                                          <File className="h-4 w-4" />
+                                          <span>{att.name}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    </ScrollArea>
                   )}
                 </TabsContent>
 

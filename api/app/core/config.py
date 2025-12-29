@@ -49,6 +49,22 @@ class Settings(BaseSettings):
         "application/pdf",
     ]
     
+    # Répertoire d'upload
+    UPLOAD_DIR: str = "./data/uploads"
+    
+    # Mobile Money Configuration
+    FLOOZ_API_URL: str = ""
+    FLOOZ_MERCHANT_ID: str = ""
+    FLOOZ_API_KEY: str = ""
+    FLOOZ_WEBHOOK_SECRET: str = Field(default_factory=lambda: secrets.token_urlsafe(32))
+    TMONEY_API_URL: str = ""
+    TMONEY_MERCHANT_ID: str = ""
+    TMONEY_API_KEY: str = ""
+    TMONEY_WEBHOOK_SECRET: str = Field(default_factory=lambda: secrets.token_urlsafe(32))
+    
+    # Montant des frais de déclaration (en FCFA)
+    DECLARATION_FEE: int = 1000
+    
     # Admin initial (à changer après premier démarrage)
     ADMIN_USERNAME: str = "admin"
     ADMIN_EMAIL: str = "admin@example.com"

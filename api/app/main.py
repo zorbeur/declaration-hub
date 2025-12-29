@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse
 
 from app.core.config import get_settings
 from app.core.database import init_db, close_db
-from app.api.routes import auth_router, declarations_router, tips_router
+from app.api.routes import auth_router, declarations_router, tips_router, payments_router, files_router
 from app.middleware.security import (
     SecurityHeadersMiddleware,
     RateLimitMiddleware,
@@ -99,6 +99,8 @@ app.add_middleware(RequestLoggingMiddleware)
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(declarations_router, prefix="/api/v1")
 app.include_router(tips_router, prefix="/api/v1")
+app.include_router(payments_router, prefix="/api/v1/payments", tags=["payments"])
+app.include_router(files_router, prefix="/api/v1/files", tags=["files"])
 
 
 # === Endpoints de base ===

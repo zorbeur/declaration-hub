@@ -10,10 +10,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useDeclarations } from "@/hooks/useDeclarations";
 import { useToast } from "@/hooks/use-toast";
-import { DeclarationAttachment, DeclarationType } from "@/types/declaration";
-import { Upload, X, ChevronRight, ChevronLeft, FileImage, FileText, File } from "lucide-react";
+import { DeclarationAttachment, DeclarationType, PaymentInfo } from "@/types/declaration";
+import { Upload, X, ChevronRight, ChevronLeft, FileImage, FileText, File, CheckCircle2 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
-import { MathCaptcha } from "@/components/MathCaptcha";
+import { CoverPhotoUpload } from "@/components/CoverPhotoUpload";
+import { MobileMoneyPayment } from "@/components/MobileMoneyPayment";
 
 const PLAINTE_CATEGORIES = [
   "Agression physique",
@@ -38,12 +39,14 @@ const PERTE_CATEGORIES = [
   "Autre objet"
 ];
 
+const DECLARATION_FEE = 1000; // FCFA
+
 export default function Submit() {
   const navigate = useNavigate();
   const { addDeclaration } = useDeclarations();
   const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState(1);
-  const totalSteps = 4;
+  const totalSteps = 5; // Ajout de l'étape paiement
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -58,23 +61,22 @@ export default function Submit() {
     incidentDate: "",
     location: "",
     reward: "",
+    coverPhoto: undefined as string | undefined,
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [attachments, setAttachments] = useState<DeclarationAttachment[]>([]);
-
-  // Captcha state
-  const [captchaVerified, setCaptchaVerified] = useState(false);
+  const [paymentInfo, setPaymentInfo] = useState<PaymentInfo | null>(null);
+  const [isPaid, setIsPaid] = useState(false);
 
   // Validation functions
   const validatePhone = (phone: string): boolean => {
-    // Format Togo: +228 suivi de 8 chiffres
     const phoneRegex = /^\+228[0-9]{8}$/;
     return phoneRegex.test(phone.replace(/\s/g, ''));
   };
 
   const validateEmail = (email: string): boolean => {
-    if (!email) return true; // Email is optional
+    if (!email) return true;
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
   };
@@ -123,7 +125,6 @@ export default function Submit() {
     const files = e.target.files;
     if (!files) return;
     await processFiles(files);
-    // Reset input
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -216,8 +217,12 @@ export default function Submit() {
         break;
 
       case 4:
-        if (!captchaVerified) {
-          newErrors.captcha = "Veuillez résoudre le captcha";
+        // Pas de validation obligatoire pour les photos
+        break;
+
+      case 5:
+        if (!isPaid) {
+          newErrors.payment = "Le paiement est requis pour valider la déclaration";
         }
         break;
 
@@ -313,6 +318,19 @@ export default function Submit() {
     return `${browser}${version ? ` v${version}` : ''} - ${navigator.platform}`;
   };
 
+  const handlePaymentSuccess = (transactionId: string) => {
+    const payment: PaymentInfo = {
+      transactionId,
+      provider: "flooz", // Could be dynamic based on actual selection
+      amount: DECLARATION_FEE,
+      phoneNumber: formData.phone,
+      status: "success",
+      paidAt: new Date().toISOString(),
+    };
+    setPaymentInfo(payment);
+    setIsPaid(true);
+  };
+
   const handleFinalSubmit = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -322,7 +340,6 @@ export default function Submit() {
     const { deviceType, deviceModel } = getDeviceInfo();
     const browserInfo = getBrowserInfo();
 
-    // Use custom category if "Autre" is selected
     const finalCategory = (formData.category === "Autre objet" || formData.category === "Autre plainte")
       ? formData.customCategory
       : formData.category;
@@ -331,11 +348,14 @@ export default function Submit() {
       ...formData,
       category: finalCategory,
       type: formData.type as DeclarationType,
+      coverPhoto: formData.coverPhoto,
       attachments,
       browserInfo,
       deviceType,
       deviceModel,
       ipAddress: "Non disponible côté client",
+      payment: paymentInfo || undefined,
+      isPaid: true,
     });
 
     toast({
@@ -350,6 +370,17 @@ export default function Submit() {
   const progress = (currentStep / totalSteps) * 100;
   const maxDate = new Date().toISOString().split('T')[0];
 
+  const getStepTitle = (step: number) => {
+    switch (step) {
+      case 1: return "Informations personnelles";
+      case 2: return "Type de déclaration";
+      case 3: return "Détails de l'incident";
+      case 4: return "Photos et pièces jointes";
+      case 5: return "Paiement et validation";
+      default: return "";
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -358,7 +389,7 @@ export default function Submit() {
           <CardHeader>
             <CardTitle className="text-2xl">Nouvelle déclaration</CardTitle>
             <CardDescription>
-              Étape {currentStep} sur {totalSteps}
+              Étape {currentStep} sur {totalSteps} — {getStepTitle(currentStep)}
             </CardDescription>
             <Progress value={progress} className="mt-4" />
           </CardHeader>
@@ -475,7 +506,6 @@ export default function Submit() {
                         )}
                       </div>
 
-                      {/* Custom category input for "Autre" */}
                       {(formData.category === "Autre objet" || formData.category === "Autre plainte") && (
                         <div className="space-y-2 animate-fade-in">
                           <Label htmlFor="customCategory">Précisez la catégorie *</Label>
@@ -545,7 +575,7 @@ export default function Submit() {
                     <Label htmlFor="location">Lieu *</Label>
                     <Input
                       id="location"
-                      placeholder="Ex: Dakar, Plateau, Avenue Léopold Sédar Senghor"
+                      placeholder="Ex: Lomé, Boulevard du 13 Janvier"
                       value={formData.location}
                       onChange={(e) => {
                         setFormData({ ...formData, location: e.target.value });
@@ -575,116 +605,154 @@ export default function Submit() {
                 </div>
               )}
 
-              {/* Étape 4: Pièces jointes */}
+              {/* Étape 4: Photos et pièces jointes */}
               {currentStep === 4 && (
-                <div className="space-y-4 animate-fade-in">
-                  <h3 className="text-lg font-semibold">Pièces jointes</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Ajoutez des photos ou documents pour appuyer votre déclaration (optionnel)
-                  </p>
+                <div className="space-y-6 animate-fade-in">
+                  <h3 className="text-lg font-semibold">Photos et documents</h3>
                   
-                  {/* Drag & Drop Zone */}
-                  <div
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
-                    onDrop={handleDrop}
-                    className={`
-                      border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200
-                      ${isDragging 
-                        ? "border-primary bg-primary/5 scale-[1.02]" 
-                        : "border-border hover:border-primary hover:bg-muted/50"
-                      }
-                    `}
-                  >
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      id="file-upload"
-                      multiple
-                      accept="image/*,.pdf"
-                      onChange={handleFileChange}
-                      className="hidden"
-                    />
-                    <label htmlFor="file-upload" className="cursor-pointer">
-                      <Upload className={`h-12 w-12 mx-auto mb-3 transition-colors ${isDragging ? "text-primary" : "text-muted-foreground"}`} />
-                      <p className="text-sm font-medium mb-1">
-                        {isDragging ? "Déposez les fichiers ici" : "Glissez-déposez vos fichiers ici"}
-                      </p>
-                      <p className="text-sm text-muted-foreground mb-2">ou</p>
-                      <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
-                        Parcourir les fichiers
-                      </Button>
-                      <p className="text-xs text-muted-foreground mt-3">
-                        Images ou PDF (max 5 Mo par fichier)
-                      </p>
-                    </label>
-                  </div>
+                  {/* Photo de couverture */}
+                  <CoverPhotoUpload 
+                    value={formData.coverPhoto}
+                    onChange={(photo) => setFormData({ ...formData, coverPhoto: photo })}
+                  />
+                  
+                  {/* Autres pièces jointes */}
+                  <div className="space-y-2 pt-4 border-t">
+                    <Label>Autres pièces jointes (optionnel)</Label>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Ajoutez des documents supplémentaires pour appuyer votre déclaration
+                    </p>
+                    
+                    <div
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={handleDrop}
+                      className={`
+                        border-2 border-dashed rounded-lg p-6 text-center transition-all duration-200
+                        ${isDragging 
+                          ? "border-primary bg-primary/5 scale-[1.02]" 
+                          : "border-border hover:border-primary hover:bg-muted/50"
+                        }
+                      `}
+                    >
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        id="file-upload"
+                        multiple
+                        accept="image/*,.pdf"
+                        onChange={handleFileChange}
+                        className="hidden"
+                      />
+                      <label htmlFor="file-upload" className="cursor-pointer">
+                        <Upload className={`h-10 w-10 mx-auto mb-2 transition-colors ${isDragging ? "text-primary" : "text-muted-foreground"}`} />
+                        <p className="text-sm font-medium mb-1">
+                          {isDragging ? "Déposez les fichiers ici" : "Glissez-déposez vos fichiers"}
+                        </p>
+                        <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+                          Parcourir
+                        </Button>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Images ou PDF (max 5 Mo par fichier)
+                        </p>
+                      </label>
+                    </div>
 
-                  {/* Attachments Preview */}
-                  {attachments.length > 0 && (
-                    <div className="space-y-3">
-                      <p className="text-sm font-medium">{attachments.length} fichier(s) ajouté(s)</p>
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        {attachments.map((att) => {
-                          const IconComponent = getFileIcon(att.type);
-                          return (
-                            <div
-                              key={att.id}
-                              className="relative group bg-muted/50 rounded-lg border border-border overflow-hidden"
-                            >
-                              {att.type.startsWith('image/') ? (
-                                <div className="aspect-video relative">
-                                  <img
-                                    src={att.data}
-                                    alt={att.name}
-                                    className="w-full h-full object-cover"
-                                  />
-                                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    {attachments.length > 0 && (
+                      <div className="space-y-3 mt-4">
+                        <p className="text-sm font-medium">{attachments.length} fichier(s) ajouté(s)</p>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          {attachments.map((att) => {
+                            const IconComponent = getFileIcon(att.type);
+                            return (
+                              <div
+                                key={att.id}
+                                className="relative group bg-muted/50 rounded-lg border border-border overflow-hidden"
+                              >
+                                {att.type.startsWith('image/') ? (
+                                  <div className="aspect-video relative">
+                                    <img
+                                      src={att.data}
+                                      alt={att.name}
+                                      className="w-full h-full object-cover"
+                                    />
+                                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                      <Button
+                                        type="button"
+                                        variant="destructive"
+                                        size="sm"
+                                        onClick={() => removeAttachment(att.id)}
+                                      >
+                                        <X className="h-4 w-4 mr-1" />
+                                        Supprimer
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="p-4 flex items-center gap-3">
+                                    <IconComponent className="h-8 w-8 text-muted-foreground flex-shrink-0" />
+                                    <span className="text-sm truncate flex-1">{att.name}</span>
                                     <Button
                                       type="button"
-                                      variant="destructive"
+                                      variant="ghost"
                                       size="sm"
                                       onClick={() => removeAttachment(att.id)}
                                     >
-                                      <X className="h-4 w-4 mr-1" />
-                                      Supprimer
+                                      <X className="h-4 w-4" />
                                     </Button>
                                   </div>
-                                </div>
-                              ) : (
-                                <div className="p-4 flex items-center gap-3">
-                                  <IconComponent className="h-8 w-8 text-muted-foreground flex-shrink-0" />
-                                  <span className="text-sm truncate flex-1">{att.name}</span>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => removeAttachment(att.id)}
-                                  >
-                                    <X className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              )}
-                              {att.type.startsWith('image/') && (
-                                <div className="p-2 border-t border-border">
-                                  <p className="text-xs truncate">{att.name}</p>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
+                                )}
+                                {att.type.startsWith('image/') && (
+                                  <div className="p-2 border-t border-border">
+                                    <p className="text-xs truncate">{att.name}</p>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               )}
 
-              {/* Captcha - Only on step 4 */}
-              {currentStep === 4 && (
-                <div className="animate-fade-in">
-                  <MathCaptcha onVerified={setCaptchaVerified} />
-                  {errors.captcha && (
-                    <p className="text-sm text-destructive mt-2">{errors.captcha}</p>
+              {/* Étape 5: Paiement */}
+              {currentStep === 5 && (
+                <div className="space-y-6 animate-fade-in">
+                  <h3 className="text-lg font-semibold">Validation par paiement</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Pour finaliser votre déclaration, veuillez effectuer le paiement des frais de traitement.
+                  </p>
+                  
+                  {isPaid ? (
+                    <Card className="border-success/30 bg-success/5">
+                      <CardContent className="pt-6">
+                        <div className="text-center space-y-4">
+                          <div className="w-16 h-16 mx-auto bg-success/20 rounded-full flex items-center justify-center">
+                            <CheckCircle2 className="w-10 h-10 text-success" />
+                          </div>
+                          <div>
+                            <h3 className="text-lg font-semibold text-success">Paiement validé!</h3>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              Transaction: {paymentInfo?.transactionId}
+                            </p>
+                          </div>
+                          <p className="text-sm">
+                            Vous pouvez maintenant soumettre votre déclaration.
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <MobileMoneyPayment
+                      amount={DECLARATION_FEE}
+                      onPaymentSuccess={handlePaymentSuccess}
+                    />
+                  )}
+
+                  {errors.payment && (
+                    <p className="text-sm text-destructive">{errors.payment}</p>
                   )}
                 </div>
               )}
@@ -706,7 +774,13 @@ export default function Submit() {
                       <ChevronRight className="h-4 w-4 ml-2" />
                     </Button>
                   ) : (
-                    <Button type="button" onClick={handleFinalSubmit} disabled={!captchaVerified}>
+                    <Button 
+                      type="button" 
+                      onClick={handleFinalSubmit} 
+                      disabled={!isPaid}
+                      className="gap-2"
+                    >
+                      <CheckCircle2 className="h-4 w-4" />
                       Soumettre la déclaration
                     </Button>
                   )}

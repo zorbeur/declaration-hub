@@ -92,14 +92,14 @@ export const useDeclarations = () => {
       ...declaration,
       id: crypto.randomUUID(),
       trackingCode: generateUniqueTrackingCode(),
-      status: "en_attente",
+      status: declaration.isPaid ? "en_attente" : "en_attente",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       statusHistory: [{
         status: "en_attente",
         changedBy: "Système",
         changedAt: new Date().toISOString(),
-        comment: "Déclaration créée"
+        comment: declaration.isPaid ? "Déclaration créée (paiement validé)" : "Déclaration créée"
       }],
       tips: [],
       messages: [],

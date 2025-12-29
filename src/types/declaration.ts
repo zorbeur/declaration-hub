@@ -30,6 +30,15 @@ export interface Message {
   isRead: boolean;
 }
 
+export interface PaymentInfo {
+  transactionId: string;
+  provider: "flooz" | "tmoney";
+  amount: number;
+  phoneNumber: string;
+  status: "pending" | "success" | "failed";
+  paidAt?: string;
+}
+
 export interface Declaration {
   id: string;
   trackingCode: string;
@@ -42,6 +51,7 @@ export interface Declaration {
   incidentDate: string;
   location: string;
   reward?: string;
+  coverPhoto?: string; // Photo de couverture (base64)
   attachments: DeclarationAttachment[];
   status: DeclarationStatus;
   priority?: Priority;
@@ -49,6 +59,9 @@ export interface Declaration {
   updatedAt: string;
   validatedBy?: string;
   assignedTo?: string;
+  // Informations de paiement
+  payment?: PaymentInfo;
+  isPaid: boolean;
   // Informations de suivi technique
   browserInfo?: string;
   deviceType?: string;
